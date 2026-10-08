@@ -23,4 +23,5 @@ const custom_item* find_item(int id) noexcept {auto i=custom_items.find(id);retu
 bool is_custom_item(int id) noexcept{return custom_items.contains(id);}
 const recipe* find_recipe(int result) noexcept{auto i=recipes.find(result);return i==recipes.end()?nullptr:&i->second;}
 const std::unordered_map<int,custom_item>& items() noexcept{return custom_items;}
+std::size_t recipe_count() noexcept{return recipes.size();}
 }
