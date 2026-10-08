@@ -10,6 +10,7 @@ const ::item* find_custom_runtime_item(u_short id) noexcept;
 namespace {
 std::vector<std::vector<u_char>> item_records;
 std::vector<::item> custom_runtime_items;
+std::vector<u_char> vanilla_im_data;
 const std::string_view item_name_token{"PBG892FXX982ABC*"};
 void write_u16(std::vector<u_char>& d, std::size_t p, u_short v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
 void write_u32(std::vector<u_char>& d, std::size_t p, u_int v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
@@ -230,6 +231,7 @@ bool decode_items()
         item_records.emplace_back(im_data.begin() + record_start, im_data.begin() + pos);
     }
     printf("items.dat parsed successfully!\n");
+    vanilla_im_data = im_data;
     if (!custom_content::items().empty() && !rebuild_custom_items()) return false;
     return true;
 }
@@ -246,11 +248,12 @@ bool rebuild_custom_items()
     // records is dangerous: a parser/format mismatch can corrupt vanilla
     // texture metadata (especially hand-item sprites). Custom records are
     // appended after the untouched vanilla database.
-    std::vector<u_char> rebuilt = im_data;
+    const std::vector<u_char>& vanilla = vanilla_im_data.empty() ? im_data : vanilla_im_data;
+    std::vector<u_char> rebuilt = vanilla;
     u_short version{};
-    std::memcpy(&version, im_data.data() + header_size, sizeof(version));
+    std::memcpy(&version, vanilla.data() + header_size, sizeof(version));
     u_int vanilla_count{};
-    std::memcpy(&vanilla_count, im_data.data() + header_size + sizeof(version), sizeof(vanilla_count));
+    std::memcpy(&vanilla_count, vanilla.data() + header_size + sizeof(version), sizeof(vanilla_count));
 
     std::vector<std::pair<u_int, std::vector<u_char>>> custom_records;
     custom_records.reserve(custom_content::items().size());
