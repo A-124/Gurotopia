@@ -14,7 +14,7 @@ const std::string_view item_name_token{"PBG892FXX982ABC*"};
 void write_u16(std::vector<u_char>& d, std::size_t p, u_short v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
 void write_u8(std::vector<u_char>& d, std::size_t p, u_char v) { d[p]=v; }
 void write_i32(std::vector<u_char>& d, std::size_t p, int v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
-u_int hash_bytes(const u_char* data, std::size_t size) noexcept { u_int acc = 0x55555555u; for (std::size_t i = 0; i < size; ++i) acc = std::rotl(acc, 5) + data[i]; return acc; }
+u_int hash_bytes(const u_char* data, std::size_t size) noexcept { u_int acc = 0x55555555u; for (std::size_t i = 0; i < size; ++i) acc = ((acc << 5) | (acc >> 27)) + data[i]; return acc; }
 
 }
 
