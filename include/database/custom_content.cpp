@@ -14,7 +14,7 @@ bool reload(){
  while(std::getline(f,line)){
   if(line.empty()||line[0]=='#') continue;
   auto p=split(line,'|'); if(p.empty()) continue;
-  if(p[0]=="item" && p.size()>=6){ custom_item x; if(!integer(p[1],x.id)||!integer(p[3],x.base_item)||!integer(p[4],x.type)||!integer(p[5],x.rarity)) continue; x.name=p[2]; if(p.size()>6)x.tradeable=(p[6]!="0"); if(x.id<1000||x.id>65535)continue; if(x.base_item<0||x.base_item>65535)continue; if(x.name.empty()||x.name.size()>32767)continue; next_items[x.id]=std::move(x); }
+  if(p[0]=="item" && p.size()>=6){ custom_item x; if(!integer(p[1],x.id)||!integer(p[3],x.base_item)||!integer(p[4],x.type)||!integer(p[5],x.rarity)) continue; x.name=p[2]; if(p.size()>6)x.tradeable=(p[6]!="0"); if(p.size()>7)x.texture=p[7]; if(x.id<1000||x.id>65535)continue; if(x.base_item<0||x.base_item>65535)continue; if(x.name.empty()||x.name.size()>32767||x.texture.size()>32767)continue; next_items[x.id]=std::move(x); }
   else if(p[0]=="recipe" && p.size()>=4){ recipe r; if(!integer(p[1],r.result)||!integer(p[2],r.amount))continue; auto ingredients=split(p[3],','); bool ok=true; for(auto& i:ingredients){auto q=split(i,':');int id{},amount{};if(q.size()!=2||!integer(q[0],id)||!integer(q[1],amount)||amount<=0){ok=false;break;}r.ingredients.emplace_back(id,amount);}if(ok&&!r.ingredients.empty()&&r.result>=0&&r.result<=65535&&r.amount>0&&r.amount<=200)next_recipes[r.result]=std::move(r); }
  }
  custom_items.swap(next_items); recipes.swap(next_recipes); return true;
