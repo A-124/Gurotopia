@@ -251,33 +251,40 @@ bool rebuild_custom_items()
                    im_data.begin() + payload_start + sizeof(version) + sizeof(vanilla_count));
     for (const auto& record : item_records) rebuilt.insert(rebuilt.end(), record.begin(), record.end());
 
-    u_int total_count = vanilla_count;
+    std::vector<std::pair<u_int, std::vector<u_char>>> custom_records;
+    custom_records.reserve(custom_content::items().size());
+
     for (const auto& [id, def] : custom_content::items()) {
         if (id < 1000 || id > 65535) continue;
+
         std::size_t base_index = item_records.size();
         for (std::size_t n = 0; n < items.size(); ++n)
             if (items[n].id == static_cast<u_short>(def.base_item)) { base_index = n; break; }
         if (base_index == item_records.size()) continue;
+
         bool vanilla_id = false;
         for (const auto& vanilla : items)
             if (vanilla.id == static_cast<u_short>(id)) { vanilla_id = true; break; }
-        if (vanilla_id) continue;
+        if (vanilla_id || id < static_cast<int>(vanilla_count)) continue;
+
         const auto& base = item_records[base_index];
         if (base.size() < 10) continue;
 
         std::vector<u_char> record = base;
-        u_short custom_id = static_cast<u_short>(id);
+        const u_short custom_id = static_cast<u_short>(id);
         write_u16(record, 0, custom_id);
         write_u8(record, 5, def.tradeable ? 0 : CAT_UNTRADEABLE);
         write_u8(record, 6, static_cast<u_char>(std::clamp(def.type, 0, 255)));
-        // Name length starts at byte 8 in a record: id(2), padding(2), property(1), cat(1), type(1), padding(1).
-        // Keep the record shape compatible while replacing the encoded name.
-        u_short name_len{}; std::memcpy(&name_len, record.data() + 8, sizeof(name_len));
+
+        u_short name_len{};
+        std::memcpy(&name_len, record.data() + 8, sizeof(name_len));
         const std::size_t name_start = 10;
         if (name_start + name_len > record.size() || def.name.size() > 32767) continue;
+
         std::vector<u_char> encoded(def.name.size());
-        for (std::size_t n=0; n<def.name.size(); ++n)
-            encoded[n] = static_cast<u_char>(def.name[n]) ^ static_cast<u_char>(item_name_token[(n + custom_id) % item_name_token.size()]);
+        for (std::size_t n = 0; n < def.name.size(); ++n)
+            encoded[n] = static_cast<u_char>(def.name[n]) ^
+                         static_cast<u_char>(item_name_token[(n + custom_id) % item_name_token.size()]);
         record.erase(record.begin() + name_start, record.begin() + name_start + name_len);
         record.insert(record.begin() + name_start, encoded.begin(), encoded.end());
         write_u16(record, 8, static_cast<u_short>(encoded.size()));
@@ -285,7 +292,8 @@ bool rebuild_custom_items()
         if (!def.texture.empty()) {
             const std::size_t texture_len_pos = name_start + encoded.size();
             if (texture_len_pos + sizeof(u_short) <= record.size()) {
-                u_short old_len{}; std::memcpy(&old_len, record.data() + texture_len_pos, sizeof(old_len));
+                u_short old_len{};
+                std::memcpy(&old_len, record.data() + texture_len_pos, sizeof(old_len));
                 const std::size_t texture_start = texture_len_pos + sizeof(u_short);
                 if (texture_start + old_len <= record.size()) {
                     record.erase(record.begin() + texture_start, record.begin() + texture_start + old_len);
@@ -311,8 +319,6 @@ bool rebuild_custom_items()
             }
         }
 
-        // Rarity is after the clothing byte and several fixed fields, so retain the
-        // base value for now; the server-side definition still owns the canonical rarity.
         ::item runtime{};
         runtime.id = custom_id;
         runtime.raw_name = def.name;
@@ -321,9 +327,35 @@ bool rebuild_custom_items()
         runtime.cat = def.tradeable ? 0 : CAT_UNTRADEABLE;
         runtime.ingredient = static_cast<int>(def.base_item);
         custom_runtime_items.emplace_back(std::move(runtime));
-        rebuilt.insert(rebuilt.end(), record.begin(), record.end());
-        ++total_count;
+
+        custom_records.emplace_back(static_cast<u_int>(id), std::move(record));
     }
+
+    std::sort(custom_records.begin(), custom_records.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    // Grow the on-wire database to the highest custom ID. The client indexes
+    // items.dat records by item ID, so simply appending ID 20000 after 16434
+    // vanilla records would leave the custom item at the wrong record index.
+    if (!custom_records.empty()) {
+        const auto placeholder = item_records.front();
+        u_int next_id = vanilla_count;
+
+        for (const auto& [custom_id, record] : custom_records) {
+            while (next_id < custom_id) {
+                std::vector<u_char> filler = placeholder;
+                write_u16(filler, 0, static_cast<u_short>(next_id));
+                rebuilt.insert(rebuilt.end(), filler.begin(), filler.end());
+                ++next_id;
+            }
+            rebuilt.insert(rebuilt.end(), record.begin(), record.end());
+            next_id = custom_id + 1;
+        }
+    }
+
+    const u_int total_count = custom_records.empty()
+        ? vanilla_count
+        : std::max<u_int>(vanilla_count, custom_records.back().first + 1); 
     write_u16(rebuilt, header_size, version);
     std::memcpy(rebuilt.data() + header_size + sizeof(version), &total_count, sizeof(total_count));
     const u_int packet_size = static_cast<u_int>(rebuilt.size() - header_size);
