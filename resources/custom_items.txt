@@ -4,3 +4,7 @@
 
 # Example (use a real vanilla result id to test crafting):
 # recipe|2|1|18:2
+
+# Phase 5 example (uncomment to test client-visible custom items):
+# item|20000|Guro Crystal|2|4|10|1
+# recipe|20000|1|18:2
