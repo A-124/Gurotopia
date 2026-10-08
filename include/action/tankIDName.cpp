@@ -34,10 +34,10 @@ void action::tankIDName(ENetEvent& event, const std::string& header)
             .type = 0x10, // PACKET_SEND_ITEM_DATABASE_DATA
             .size = static_cast<u_int>(im_data.size())
         });
-        item_db_packet.insert(item_db_packet.end(), im_data.begin(), im_data.end());
+        item_db_packet.data().insert(item_db_packet.data().end(), im_data.begin(), im_data.end());
 
         ENetPacket* item_packet = enet_packet_create(
-            item_db_packet.data(),
+            item_db_packet.data().data(),
             item_db_packet.size(),
             ENET_PACKET_FLAG_RELIABLE
         );
