@@ -12,6 +12,7 @@
 #include "include/automate/holiday.hpp" // @note holiday
 #include <csignal>
 #include "include/commands/event_manager.hpp" // @note event_manager_tick()
+#include "include/core/event_bus.hpp"
 
 namespace
 {
@@ -55,6 +56,7 @@ int main()
     while (!gSignal)
     {
         event_manager_tick(); // @note check if gem/xp multiplier event has expired
+        event_bus::emit({ event_bus::type::tick });
 
         while (enet_host_service(host, &event, 1000/*ms*/) > 0)
             if (const auto i = eventType_pool.find(event.type); i != eventType_pool.end())
