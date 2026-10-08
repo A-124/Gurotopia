@@ -199,3 +199,4 @@ extern const ::item &id_to_item(u_short id) noexcept; // @note std::out_of_range
 extern std::vector<u_char> im_data;
 
 extern bool decode_items();
+extern bool rebuild_custom_items();
