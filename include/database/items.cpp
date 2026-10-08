@@ -220,6 +220,7 @@ bool decode_items()
         items.emplace_back(item);
     }
     printf("items.dat parsed successfully!\n");
+    if (!custom_content::items().empty() && !rebuild_custom_items()) return false;
     return true;
 }
 
