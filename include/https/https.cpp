@@ -79,6 +79,7 @@ static bool serve_asset(SSL *ssl, const std::string &path)
         constexpr std::size_t header_size = sizeof(::gamePacket);
         if (im_data.size() <= header_size) return false;
         const auto *body = im_data.data() + header_size;
+        std::printf("[https] serving custom items.dat (%zu bytes, hash=%u)\\n", im_data.size() - header_size, item_data_hash());
         const std::size_t body_size = im_data.size() - header_size;
         const std::string header = std::format(
             "HTTP/1.1 200 OK\\r\\n"
@@ -102,6 +103,7 @@ static bool serve_asset(SSL *ssl, const std::string &path)
         std::filesystem::path("resources/custom_assets") / filename;
     std::ifstream file(file_path, std::ios::binary | std::ios::ate);
     if (!file) return false;
+    std::printf("[https] serving custom asset: %s\\n", filename.c_str());
 
     const std::streamsize size = file.tellg();
     if (size < 0) return false;
