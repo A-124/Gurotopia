@@ -1,133 +1,113 @@
-<div align="center">
+# Gurotopia
 
-**グロートピア** *(Gurotopia)* : Lightweight & Maintained GTPS written in C/C++
+**Gurotopia** — Lightweight & Maintained GTPS written in C/C++.
 
-[![](https://github.com/GT-api/GT.api/actions/workflows/make.yml/badge.svg)](https://github.com/GT-api/GT.api/actions/workflows/make.yml)
-[![Dockerfile](https://github.com/gurotopia/Gurotopia/actions/workflows/docker.yml/badge.svg)](https://github.com/gurotopia/Gurotopia/actions/workflows/docker.yml)
-[![](https://app.codacy.com/project/badge/Grade/fa8603d6ec2b4485b8e24817ef23ca21)](https://app.codacy.com/gh/gurotopia/Gurotopia/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
-[![](https://dcbadge.limes.pink/api/server/zzWHgzaF7J?style=flat)](https://discord.gg/zzWHgzaF7J)
-
-</div>
+A Growtopia Private Server (GTPS) project based on the original Gurotopia repository, with custom commands and features added.
 
 ---
-# <img width="250" height="53" alt="image" src="https://github.com/user-attachments/assets/0a3bee67-ad6c-4e4c-bd0e-aed89d9b5c09" />
 
-### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/archive.svg) 1. Requirements
-   - [**MSYS2**](https://www.msys2.org/)
-   - [**Visual Studio Code**](https://code.visualstudio.com/): install [C/C++ extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools) for VSCode
-   - [**MariaDB Server**](https://mariadb.org/download/?t=mariadb&p=mariadb&r=12.2.2&os=windows&cpu=x86_64&pkg=msi&mirror=accretive)
+## Requirements
 
-### 2. Setup MSYS2
-   - Locate your MSYS2 folder at `C:\msys64`, open `ucrt64.exe`, and run the following command:
-   
-     ```bash
-     pacman -S --needed mingw-w64-ucrt-x86_64-{gcc,openssl} make
-     ```
+- MSYS2
+- Visual Studio Code — install the C/C++ extension
+- MariaDB Server
 
-### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/build.svg) 3. Compile
-   - Open the project folder in Visual Studio Code.
-   - Press **`Ctrl + Shift + B`** to start the build process.
+---
 
-### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/debug-alt-small.svg) 4. Run
-   - After compiling, press **`F5`** to run the server!
+## Setup
 
-# <img src="https://github.com/user-attachments/assets/fecde323-04c5-4b82-a08d-badcb184be6a" width="30" /> Linux
+### Windows (MSYS2)
 
-### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/archive.svg) 1. Install Dependencies
+1. Open your MSYS2 folder at C:\msys64, run ucrt64.exe, and execute:
 
-- Enter command associated with your distribution into the terminal to install nessesary tools.
-   <details><summary><img width="22" height="22" src="https://github.com/user-attachments/assets/8359ba6e-a9b2-4500-893f-61eaf40e2478" /> Arch</summary>
-   <p>
-      
-   ```bash
+   pacman -S --needed mingw-w64-ucrt-x86_64-{gcc,openssl} make
+
+2. Open the project in Visual Studio Code.
+3. Press Ctrl + Shift + B to build.
+4. Press F5 to run the server.
+
+### Linux
+
+Install dependencies:
+
+   # Arch
    sudo pacman -S base-devel openssl mariadb-libs
-   ```
-   </p>
-   </details> 
-   <details><summary><img width="22" height="22" src="https://github.com/user-attachments/assets/742f35c4-3e69-450e-8095-9fabe9ecd0d8" /> Debian <img width="18" height="18" src="https://github.com/user-attachments/assets/46f0770e-f4ed-480b-851d-c90b05fae52f" /> Ubuntu</summary>
-   <p>
-      
-   ```bash
+
+   # Debian / Ubuntu
    sudo apt-get update && sudo apt-get install build-essential libssl-dev libmariadb-dev
-   ```
-        
-   </p>
-   </details> 
-### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/build.svg) 2. Compile
-   - Navigate to the project's root directory in your terminal and run the `make` command:
-   
-     ```bash
-     make -j$(nproc)
-     ```
-### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/debug-alt-small.svg) 3. Run
-   - Execute the compiled binary located in the `main` directory:
-   
-     ```bash
-     ./main.out
-     ```
-# macOS
 
-> [!NOTE]
-> macOS builds are only tested on Intel (`x86_64`). Apple Silicon is not tested yet.
-> `include/enet/lib/libenet_macos.a` is a universal (`x86_64` + `arm64`) archive, so it should still link on Apple Silicon.
+Compile and run:
 
-### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/archive.svg) 1. Install Dependencies
+   make -j$(nproc)
+   ./main.out
 
-- Install [Homebrew](https://brew.sh/) or [MacPorts](https://www.macports.org/install.php), then run the matching command. Mixing is fine: MacPorts GCC with Homebrew OpenSSL and MariaDB uses the Homebrew compile command.
-   <details><summary>Homebrew</summary>
-   <p>
-      
-   ```bash
+### macOS
+
+Install dependencies via Homebrew:
+
    brew install gcc make openssl@3 mariadb-connector-c
-   ```
-   </p>
-   </details>
-   <details><summary>MacPorts</summary>
-   <p>
-      
-   ```bash
-   sudo port install gcc15 gmake openssl3 mariadb-11.4
-   ```
-   </p>
-   </details>
 
-### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/build.svg) 2. Compile
+Compile:
 
-- Apple's SDK does not include OpenSSL headers. Pass Homebrew or MacPorts paths on the `make` line. A plain `make` fails with `openssl/ssl.h: No such file or directory`. Use `-lenet_macos`; the default `-lenet` is a Linux library.
-   <details><summary>Homebrew</summary>
-   <p>
-      
-   ```bash
-   make -j$(sysctl -n hw.ncpu) \
-     includes="-Iinclude -Ibuild/include -I$(brew --prefix openssl@3)/include" \
-     libraries="-L$(brew --prefix openssl@3)/lib -L$(brew --prefix mariadb-connector-c)/lib -L./include/enet/lib -L./include/mysql/lib -lssl -lcrypto -lmariadb -lenet_macos"
-   ```
-   </p>
-   </details>
-   <details><summary>MacPorts</summary>
-   <p>
-      
-   ```bash
-   gmake -j$(sysctl -n hw.ncpu) \
-     includes="-Iinclude -Ibuild/include -I/opt/local/libexec/openssl3/include" \
-     libraries="-L/opt/local/libexec/openssl3/lib -L/opt/local/lib/mariadb-11.4/mysql -L./include/enet/lib -L./include/mysql/lib -lssl -lcrypto -lmariadb -lenet_macos"
-   ```
-   </p>
-   </details>
+   make -j$(sysctl -n hw.ncpu) includes="-Iinclude -Ibuild/include -I$(brew --prefix openssl@3)/include" libraries="-L$(brew --prefix openssl@3)/lib -L$(brew --prefix mariadb-connector-c)/lib -L./include/enet/lib -L./include/mysql/lib -lssl -lcrypto -lmariadb -lenet_macos"
 
-### ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/debug-alt-small.svg) 3. Run
-   - Execute the compiled binary:
-   
-     ```bash
-     ./main.out
-     ```
-# ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/settings.svg) Local Server Configuration
+Run:
 
-> [!NOTE]
-> To connect to your local server, you must modify your system's **hosts** file.
-> - **Windows**: `C:\Windows\System32\drivers\etc\hosts`
-> - **Linux/macOS**: `/etc/hosts`
-> ```
-> 127.0.0.1 www.growtopia1.com
-> 127.0.0.1 www.growtopia2.com
-> ```
+   ./main.out
+
+---
+
+## Local Server Configuration
+
+Modify your hosts file to connect to your local server.
+
+- Windows: C:\Windows\System32\drivers\etc\hosts
+- Linux / macOS: /etc/hosts
+
+Add:
+
+   127.0.0.1 www.growtopia1.com
+   127.0.0.1 www.growtopia2.com
+
+---
+
+## Custom Commands
+
+| Command | Description |
+|---------|-------------|
+| /online or /on | Shows server statistics (online players, countries, uptime) |
+| /help or /? | Shows the list of available commands |
+
+---
+
+## Credits
+
+Based on the original Gurotopia project by the gurotopia team.
+
+- Original Repository: https://github.com/gurotopia/Gurotopia
+- Original Authors: https://github.com/gurotopia
+- License: Apache-2.0
+
+### Modifications in This Fork
+
+- Custom /online command — Displays server statistics.
+  - Original Lua concept by Albin
+  - C++ port by A-124 (https://github.com/A-124)
+
+---
+
+## License
+
+Licensed under the Apache-2.0 License — see LICENSE for details.
+
+---
+
+## Support
+
+If you find this useful, give it a star on GitHub!
+
+For questions or bug reports, open an Issue at https://github.com/A-124/Gurotopia/issues
+
+---
+
+**Enjoy your Gurotopia private server!**
