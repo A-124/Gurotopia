@@ -27,10 +27,20 @@ void action::tankIDName(ENetEvent& event, const std::string& header)
 
     send_varlist(event.peer, { "OnOverrideGDPRFromServer", 18, 1, 0, 1 });
 
-    // Send the rebuilt item database after logon so the client knows custom item IDs (e.g. 20000).
-    // The client otherwise downloads the stock items.dat and will discard unknown inventory IDs.
-    if (im_data.size() > sizeof(gamePacket)) {
-        ENetPacket* item_packet = enet_packet_create(im_data.data(), im_data.size(), ENET_PACKET_FLAG_RELIABLE);
+    // Send SEND_ITEM_DATABASE_DATA using the proper GAME_PACKET header.
+    // The payload is the rebuilt items.dat; do not send the raw items.dat bytes alone.
+    if (!im_data.empty()) {
+        ::blob item_db_packet = compress_state(::gamePacket{
+            .type = 0x10, // PACKET_SEND_ITEM_DATABASE_DATA
+            .size = static_cast<u_int>(im_data.size())
+        });
+        item_db_packet.insert(item_db_packet.end(), im_data.begin(), im_data.end());
+
+        ENetPacket* item_packet = enet_packet_create(
+            item_db_packet.data(),
+            item_db_packet.size(),
+            ENET_PACKET_FLAG_RELIABLE
+        );
         if (item_packet) {
             if (enet_peer_send(event.peer, 0, item_packet) != 0)
                 enet_packet_destroy(item_packet);
