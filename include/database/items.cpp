@@ -8,7 +8,7 @@ std::vector<::item> items;
 
 const ::item &id_to_item(u_short id) noexcept // @note std::out_of_range is handled
 {
-    if (id >= items.size()) return items[0]; // @note we can't return a contructor so this is gonna be our dummy value
+    if (id >= items.size()) { static const ::item dummy{}; return dummy; }
     
     return items[id];
 }
@@ -42,16 +42,20 @@ void data_modify(std::vector<u_char> &data, const u_int &pos, const T &value) no
     }
 }
 
-void decode_items()
+bool decode_items()
 {
+    if (!std::filesystem::exists("items.dat")) return false;
+    items.clear();
     const u_int size = std::filesystem::file_size("items.dat");
     im_data = compress_state(::gamePacket{ .type = 0x10,/*PACKET_SEND_ITEM_DATABASE_DATA*/ .state = state::S_EXTENDED, .size = size }).data();
     
     u_int pos = im_data.size(); // @note sizeof(::gamePacket)
     im_data.resize(pos + size); // @note resize to fit binary data
     
-    std::ifstream("items.dat", std::ios::binary)
-        .read((char*)&im_data[pos], size); // @note the binary data···
+    std::ifstream file("items.dat", std::ios::binary);
+    if (!file) return false;
+    file.read((char*)&im_data[pos], size);
+    if (!file) return false; // @note the binary data···
 
     u_short version{};
     shift_pos(im_data, pos, version);
@@ -206,4 +210,5 @@ void decode_items()
         items.emplace_back(item);
     }
     printf("items.dat parsed successfully!\n");
+    return true;
 }
