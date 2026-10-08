@@ -244,11 +244,20 @@ void https::listener()
                 {
                     if (!serve_asset(ssl, path))
                     {
-                        const std::string not_found =
-                            "HTTP/1.1 404 Not Found\r\n"
-                            "Content-Length: 0\r\n"
-                            "Connection: close\r\n\r\n";
-                        SSL_write(ssl, not_found.data(), static_cast<int>(not_found.size()));
+                        // The CDN path is shared by vanilla and custom assets.
+                        // Keep vanilla assets on the official CDN instead of
+                        // returning 404 from Gurotopia's local HTTPS listener.
+                        constexpr std::string_view official_cdn =
+                            "https://ubistatic-a.akamaihd.net/0098/024920264/cache";
+                        const std::string location = std::format("{}{}", official_cdn, path.substr(std::string_view("/assets").size()));
+                        const std::string redirect =
+                            std::format(
+                                "HTTP/1.1 302 Found\r\n"
+                                "Location: {}\r\n"
+                                "Content-Length: 0\r\n"
+                                "Connection: close\r\n\r\n",
+                                location);
+                        SSL_write(ssl, redirect.data(), static_cast<int>(redirect.size()));
                     }
                 }
                 else
