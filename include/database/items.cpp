@@ -280,6 +280,20 @@ bool rebuild_custom_items()
         record.insert(record.begin() + name_start, encoded.begin(), encoded.end());
         write_u16(record, 8, static_cast<u_short>(encoded.size()));
 
+        if (!def.texture.empty()) {
+            const std::size_t texture_len_pos = name_start + encoded.size();
+            if (texture_len_pos + sizeof(u_short) <= record.size()) {
+                u_short old_len{}; std::memcpy(&old_len, record.data() + texture_len_pos, sizeof(old_len));
+                const std::size_t texture_start = texture_len_pos + sizeof(u_short);
+                if (texture_start + old_len <= record.size()) {
+                    record.erase(record.begin() + texture_start, record.begin() + texture_start + old_len);
+                    record.insert(record.begin() + texture_start, def.texture.begin(), def.texture.end());
+                    const u_short new_len = static_cast<u_short>(def.texture.size());
+                    write_u16(record, texture_len_pos, new_len);
+                }
+            }
+        }
+
         // Rarity is after the clothing byte and several fixed fields, so retain the
         // base value for now; the server-side definition still owns the canonical rarity.
         ::item runtime{};
