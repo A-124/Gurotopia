@@ -3,6 +3,8 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
+#include <cstddef>
+#include <utility>
 namespace custom_content {
 struct custom_item {
     int id{};
