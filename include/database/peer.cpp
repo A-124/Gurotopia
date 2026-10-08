@@ -10,6 +10,7 @@
 #include "onVariant/ConsoleMessage.hpp"
 #include "commands/punch.hpp"
 #include "tools/string.hpp"
+#include "commands/event_manager.hpp"
 
 #include "peer.hpp"
 
@@ -232,6 +233,7 @@ u_short peer::emplace(::slot slot)
 
 void peer::add_xp(ENetEvent &event, u_short value) 
 {
+    value = static_cast<u_short>(value * get_xp_multiplier());
     u_int &lvl = this->level.front();
     u_int &xp = this->level.back() += value; // @note factor the new xp amount
 
