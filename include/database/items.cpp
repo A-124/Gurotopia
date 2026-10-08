@@ -8,6 +8,7 @@
 std::vector<::item> items;
 namespace {
 std::vector<std::vector<u_char>> item_records;
+std::vector<::item> custom_runtime_items;
 const std::string_view item_name_token{"PBG892FXX982ABC*"};
 void write_u16(std::vector<u_char>& d, std::size_t p, u_short v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
 void write_u8(std::vector<u_char>& d, std::size_t p, u_char v) { d[p]=v; }
@@ -228,6 +229,7 @@ bool decode_items()
 bool rebuild_custom_items()
 {
     if (items.empty() || item_records.size() != items.size()) return false;
+    custom_runtime_items.clear();
     const std::size_t header_size = sizeof(::gamePacket);
     if (im_data.size() < header_size + sizeof(u_short) + sizeof(u_int)) return false;
 
@@ -273,7 +275,14 @@ bool rebuild_custom_items()
 
         // Rarity is after the clothing byte and several fixed fields, so retain the
         // base value for now; the server-side definition still owns the canonical rarity.
-        (void)def.rarity;
+        ::item runtime{};
+        runtime.id = custom_id;
+        runtime.raw_name = def.name;
+        runtime.type = static_cast<u_char>(std::clamp(def.type, 0, 255));
+        runtime.rarity = static_cast<short>(std::clamp(def.rarity, -32768, 32767));
+        runtime.cat = def.tradeable ? 0 : CAT_UNTRADEABLE;
+        runtime.ingredient = static_cast<int>(def.base_item);
+        custom_runtime_items.emplace_back(std::move(runtime));
         if (!def.tradeable) record[5] |= CAT_UNTRADEABLE;
         rebuilt.insert(rebuilt.end(), record.begin(), record.end());
         ++total_count;
@@ -284,4 +293,12 @@ bool rebuild_custom_items()
     std::memcpy(rebuilt.data() + offsetof(::gamePacket, size), &packet_size, sizeof(packet_size));
     im_data.swap(rebuilt);
     return true;
+}
+
+
+const ::item* find_custom_runtime_item(u_short id) noexcept
+{
+    for (const auto& value : custom_runtime_items)
+        if (value.id == id) return &value;
+    return nullptr;
 }
