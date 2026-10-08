@@ -45,7 +45,7 @@ void craft(ENetEvent& event, const std::string_view text) {
 
     // Client-visible output must be a real items.dat item until the custom
     // item protocol is implemented. Server-only custom IDs are rejected.
-    if (result_id < 0 || !item_registry::find(static_cast<u_short>(result_id))) {
+    if (result_id < 0 || !item_registry::exists(static_cast<u_short>(result_id))) {
         send_varlist(event.peer, {"OnConsoleMessage",
             "This recipe produces a server-only custom item and cannot be crafted yet."});
         return;
