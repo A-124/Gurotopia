@@ -25,4 +25,5 @@ bool is_custom_item(int id) noexcept;
 const recipe* find_recipe(int result) noexcept;
 std::size_t recipe_count() noexcept;
 const std::unordered_map<int, custom_item>& items() noexcept;
+const custom_item* find_item(int id) noexcept;
 }
