@@ -12,6 +12,7 @@ std::vector<std::vector<u_char>> item_records;
 std::vector<::item> custom_runtime_items;
 const std::string_view item_name_token{"PBG892FXX982ABC*"};
 void write_u16(std::vector<u_char>& d, std::size_t p, u_short v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
+void write_u32(std::vector<u_char>& d, std::size_t p, u_int v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
 void write_u8(std::vector<u_char>& d, std::size_t p, u_char v) { d[p]=v; }
 void write_i32(std::vector<u_char>& d, std::size_t p, int v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
 u_int hash_bytes(const u_char* data, std::size_t size) noexcept { u_int acc = 0x55555555u; for (std::size_t i = 0; i < size; ++i) acc = ((acc << 5) | (acc >> 27)) + data[i]; return acc; }
@@ -272,8 +273,15 @@ bool rebuild_custom_items()
 
         std::vector<u_char> record = base;
         const u_short custom_id = static_cast<u_short>(id);
-        write_u16(record, 0, custom_id);
-        write_u8(record, 5, def.tradeable ? 0 : CAT_UNTRADEABLE);
+        write_u32(record, 0, static_cast<u_int>(custom_id));
+
+        // Preserve base flags and change only the tradeability bit.
+        u_short flags{};
+        std::memcpy(&flags, record.data() + 4, sizeof(flags));
+        if (def.tradeable) flags &= static_cast<u_short>(~CAT_UNTRADEABLE);
+        else flags |= CAT_UNTRADEABLE;
+        write_u16(record, 4, flags);
+
         write_u8(record, 6, static_cast<u_char>(std::clamp(def.type, 0, 255)));
 
         u_short name_len{};
@@ -319,12 +327,14 @@ bool rebuild_custom_items()
             }
         }
 
-        ::item runtime{};
+        // Clone server-side wearable metadata from the base item.
+        ::item runtime = items[base_index];
         runtime.id = custom_id;
         runtime.raw_name = def.name;
         runtime.type = static_cast<u_char>(std::clamp(def.type, 0, 255));
         runtime.rarity = static_cast<short>(std::clamp(def.rarity, -32768, 32767));
-        runtime.cat = def.tradeable ? 0 : CAT_UNTRADEABLE;
+        if (def.tradeable) runtime.cat = static_cast<u_char>(runtime.cat & ~CAT_UNTRADEABLE);
+        else runtime.cat = static_cast<u_char>(runtime.cat | CAT_UNTRADEABLE);
         runtime.ingredient = static_cast<int>(def.base_item);
         custom_runtime_items.emplace_back(std::move(runtime));
 
