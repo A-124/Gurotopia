@@ -117,8 +117,10 @@ bool decode_items()
             audio_directory.assign(reinterpret_cast<char*>(&im_data[pos]), len);
             pos += len;
 
-            if (audio_directory.ends_with(".mp3"))
-                data_modify(im_data, pos, 0); // @todo make it only for IOS
+            // Preserve the original audio directory. Mutating the first byte of
+            // an .mp3 path corrupts the client item database and can disable sounds.
+            // Platform-specific audio handling must be negotiated with the client,
+            // not applied to the shared items.dat payload.
         }
         pos += sizeof(int);
 
