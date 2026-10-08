@@ -237,10 +237,17 @@ void https::listener()
                 printf("%.*s\n", static_cast<int>(std::min(line_len, static_cast<std::size_t>(128))), buf);
 
                 const std::string path = request_path(buf);
-                if (std::string_view(buf, static_cast<std::size_t>(rbytes)).starts_with("GET ") &&
-                    serve_asset(ssl, path))
+                const bool is_get = std::string_view(buf, static_cast<std::size_t>(rbytes)).starts_with("GET ");
+                if (is_get)
                 {
-                    // Asset response has already been written.
+                    if (!serve_asset(ssl, path))
+                    {
+                        const std::string not_found =
+                            "HTTP/1.1 404 Not Found\\r\\n"
+                            "Content-Length: 0\\r\\n"
+                            "Connection: close\\r\\n\\r\\n";
+                        SSL_write(ssl, not_found.data(), static_cast<int>(not_found.size()));
+                    }
                 }
                 else
                 {
