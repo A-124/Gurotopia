@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include "content_commands.hpp"
+#include "database/custom_content.hpp"
 
 #include "quest_system.hpp"
 #include "achievement_system.hpp"
