@@ -1,0 +1,3 @@
+# Server-side custom content
+# item|id|name|base_item|type|rarity|tradeable
+# recipe|result_id|amount|ingredient_id:amount,ingredient_id:amount
