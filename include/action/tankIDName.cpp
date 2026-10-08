@@ -27,6 +27,16 @@ void action::tankIDName(ENetEvent& event, const std::string& header)
 
     send_varlist(event.peer, { "OnOverrideGDPRFromServer", 18, 1, 0, 1 });
 
+    // Send the rebuilt item database after logon so the client knows custom item IDs (e.g. 20000).
+    // The client otherwise downloads the stock items.dat and will discard unknown inventory IDs.
+    if (im_data.size() > sizeof(gamePacket)) {
+        ENetPacket* item_packet = enet_packet_create(im_data.data(), im_data.size(), ENET_PACKET_FLAG_RELIABLE);
+        if (item_packet) {
+            if (enet_peer_send(event.peer, 0, item_packet) != 0)
+                enet_packet_destroy(item_packet);
+        }
+    }
+
     /* v5.58 */
     send_varlist(event.peer, {
         "OnSuperMainStartAcceptLogonHrdxs47254722215a",
