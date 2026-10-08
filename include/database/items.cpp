@@ -268,9 +268,9 @@ bool rebuild_custom_items()
         write_u16(record, 0, custom_id);
         write_u8(record, 5, def.tradeable ? 0 : CAT_UNTRADEABLE);
         write_u8(record, 6, static_cast<u_char>(std::clamp(def.type, 0, 255)));
-        // Name length starts at byte 6 in a record: id(2), padding(2), property(1), cat(1).
+        // Name length starts at byte 8 in a record: id(2), padding(2), property(1), cat(1), type(1), padding(1).
         // Keep the record shape compatible while replacing the encoded name.
-        u_short name_len{}; std::memcpy(&name_len, record.data() + 6, sizeof(name_len));
+        u_short name_len{}; std::memcpy(&name_len, record.data() + 8, sizeof(name_len));
         const std::size_t name_start = 10;
         if (name_start + name_len > record.size() || def.name.size() > 32767) continue;
         std::vector<u_char> encoded(def.name.size());
