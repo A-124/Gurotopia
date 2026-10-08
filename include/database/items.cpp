@@ -3,8 +3,16 @@
 #include <fstream>
 
 #include "items.hpp"
+#include "database/custom_content.hpp"
 
 std::vector<::item> items;
+namespace {
+std::vector<std::vector<u_char>> item_records;
+const std::string_view item_name_token{"PBG892FXX982ABC*"};
+void write_u16(std::vector<u_char>& d, std::size_t p, u_short v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
+void write_u8(std::vector<u_char>& d, std::size_t p, u_char v) { d[p]=v; }
+void write_i32(std::vector<u_char>& d, std::size_t p, int v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
+}
 
 const ::item &id_to_item(u_short id) noexcept // @note std::out_of_range is handled
 {
@@ -212,5 +220,60 @@ bool decode_items()
         items.emplace_back(item);
     }
     printf("items.dat parsed successfully!\n");
+    return true;
+}
+
+
+bool rebuild_custom_items()
+{
+    if (items.empty() || item_records.size() != items.size()) return false;
+    const std::size_t header_size = sizeof(::gamePacket);
+    if (im_data.size() < header_size + sizeof(u_short) + sizeof(u_int)) return false;
+
+    // Remove a previous custom suffix by rebuilding the packet from the original
+    // vanilla records. This makes repeated /reload content deterministic.
+    std::vector<u_char> rebuilt(im_data.begin(), im_data.begin() + header_size);
+    u_short version{}; std::memcpy(&version, im_data.data() + header_size, sizeof(version));
+    u_int vanilla_count{}; std::memcpy(&vanilla_count, im_data.data() + header_size + sizeof(version), sizeof(vanilla_count));
+    const std::size_t payload_start = header_size;
+    rebuilt.insert(rebuilt.end(), im_data.begin() + payload_start,
+                   im_data.begin() + payload_start + sizeof(version) + sizeof(vanilla_count));
+    for (const auto& record : item_records) rebuilt.insert(rebuilt.end(), record.begin(), record.end());
+
+    u_int total_count = vanilla_count;
+    for (const auto& [id, def] : custom_content::items()) {
+        if (id < 0 || id > 65535 || static_cast<std::size_t>(def.base_item) >= item_records.size()) continue;
+        if (id < static_cast<int>(items.size())) continue;
+        const auto& base = item_records[def.base_item];
+        if (base.size() < 10) continue;
+
+        std::vector<u_char> record = base;
+        u_short custom_id = static_cast<u_short>(id);
+        write_u16(record, 0, custom_id);
+        write_u8(record, 4, static_cast<u_char>(std::clamp(def.type, 0, 255)));
+        // Name length starts at byte 6 in a record: id(2), padding(2), property(1), cat(1).
+        // Keep the record shape compatible while replacing the encoded name.
+        u_short name_len{}; std::memcpy(&name_len, record.data() + 6, sizeof(name_len));
+        const std::size_t name_start = 8;
+        if (name_start + name_len > record.size() || def.name.size() > 32767) continue;
+        std::vector<u_char> encoded(def.name.size());
+        for (std::size_t n=0; n<def.name.size(); ++n)
+            encoded[n] = static_cast<u_char>(def.name[n]) ^ static_cast<u_char>(item_name_token[(n + custom_id) % item_name_token.size()]);
+        record.erase(record.begin() + name_start, record.begin() + name_start + name_len);
+        record.insert(record.begin() + name_start, encoded.begin(), encoded.end());
+        write_u16(record, 6, static_cast<u_short>(encoded.size()));
+
+        // Rarity is after the clothing byte and several fixed fields, so retain the
+        // base value for now; the server-side definition still owns the canonical rarity.
+        (void)def.rarity;
+        if (!def.tradeable) record[5] |= CAT_UNTRADEABLE;
+        rebuilt.insert(rebuilt.end(), record.begin(), record.end());
+        ++total_count;
+    }
+    write_u16(rebuilt, header_size, version);
+    std::memcpy(rebuilt.data() + header_size + sizeof(version), &total_count, sizeof(total_count));
+    const u_int packet_size = static_cast<u_int>(rebuilt.size() - header_size);
+    std::memcpy(rebuilt.data() + offsetof(::gamePacket, size), &packet_size, sizeof(packet_size));
+    im_data.swap(rebuilt);
     return true;
 }
