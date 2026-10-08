@@ -74,8 +74,11 @@ bool decode_items()
     shift_pos(im_data, pos, count);
 
     const std::string_view token{"PBG892FXX982ABC*"};
+    item_records.clear();
+    item_records.reserve(count);
     for (u_int i = 0; i < count; ++i)
     {
+        const std::size_t record_start = pos;
         ::item item;
         
         shift_pos(im_data, pos, item.id); pos += 2; // @note downside im.id to 2 bit (short)
@@ -221,6 +224,7 @@ bool decode_items()
         if (version >= 0x1a) pos += sizeof(std::byte); // May 2026
         
         items.emplace_back(item);
+        item_records.emplace_back(im_data.begin() + record_start, im_data.begin() + pos);
     }
     printf("items.dat parsed successfully!\n");
     if (!custom_content::items().empty() && !rebuild_custom_items()) return false;
@@ -262,6 +266,7 @@ bool rebuild_custom_items()
         std::vector<u_char> record = base;
         u_short custom_id = static_cast<u_short>(id);
         write_u16(record, 0, custom_id);
+        write_u8(record, 5, def.tradeable ? 0 : CAT_UNTRADEABLE);
         write_u8(record, 6, static_cast<u_char>(std::clamp(def.type, 0, 255)));
         // Name length starts at byte 6 in a record: id(2), padding(2), property(1), cat(1).
         // Keep the record shape compatible while replacing the encoded name.
@@ -285,7 +290,6 @@ bool rebuild_custom_items()
         runtime.cat = def.tradeable ? 0 : CAT_UNTRADEABLE;
         runtime.ingredient = static_cast<int>(def.base_item);
         custom_runtime_items.emplace_back(std::move(runtime));
-        if (!def.tradeable) record[5] |= CAT_UNTRADEABLE;
         rebuilt.insert(rebuilt.end(), record.begin(), record.end());
         ++total_count;
     }
