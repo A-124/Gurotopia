@@ -1,6 +1,9 @@
 #include "pch.hpp"
 #include "https.hpp"
 #include "server_data.hpp"
+#include "database/items.hpp"
+#include <filesystem>
+#include <fstream>
 
 #include <openssl/err.h>
 
@@ -44,6 +47,86 @@ static void cross_log(const std::string &message)
     std::fprintf(stderr, "%s: %s\n", message.c_str(), strerror(errno));
 #endif
 }
+
+static bool write_all(SSL *ssl, const void *data, std::size_t size)
+{
+    const auto *bytes = static_cast<const unsigned char*>(data);
+    while (size > 0)
+    {
+        const int chunk = static_cast<int>(std::min<std::size_t>(size, 16 * 1024));
+        const int written = SSL_write(ssl, bytes, chunk);
+        if (written <= 0) return false;
+        bytes += written;
+        size -= static_cast<std::size_t>(written);
+    }
+    return true;
+}
+
+static std::string request_path(const char *request)
+{
+    const std::string_view line(request);
+    const std::size_t begin = line.find(' ');
+    if (begin == std::string_view::npos) return {};
+    const std::size_t end = line.find(' ', begin + 1);
+    if (end == std::string_view::npos) return {};
+    return std::string(line.substr(begin + 1, end - begin - 1));
+}
+
+static bool serve_asset(SSL *ssl, const std::string &path)
+{
+    if (path == "/assets/items.dat" || path.ends_with("/items.dat"))
+    {
+        constexpr std::size_t header_size = sizeof(::gamePacket);
+        if (im_data.size() <= header_size) return false;
+        const auto *body = im_data.data() + header_size;
+        const std::size_t body_size = im_data.size() - header_size;
+        const std::string header = std::format(
+            "HTTP/1.1 200 OK\\r\\n"
+            "Content-Type: application/octet-stream\\r\\n"
+            "Content-Length: {}\\r\\n"
+            "Cache-Control: no-cache\\r\\n"
+            "Connection: close\\r\\n\\r\\n",
+            body_size);
+        return write_all(ssl, header.data(), header.size()) &&
+               write_all(ssl, body, body_size);
+    }
+
+    const std::filesystem::path requested(path);
+    const std::string filename = requested.filename().string();
+    if (filename.empty() || filename == "." || filename == "..") return false;
+
+    const auto ext = std::filesystem::path(filename).extension().string();
+    if (ext != ".rttex" && ext != ".mp3" && ext != ".ogg" && ext != ".wav") return false;
+
+    const std::filesystem::path file_path =
+        std::filesystem::path("resources/custom_assets") / filename;
+    std::ifstream file(file_path, std::ios::binary | std::ios::ate);
+    if (!file) return false;
+
+    const std::streamsize size = file.tellg();
+    if (size < 0) return false;
+    file.seekg(0, std::ios::beg);
+
+    const std::string header = std::format(
+        "HTTP/1.1 200 OK\\r\\n"
+        "Content-Type: application/octet-stream\\r\\n"
+        "Content-Length: {}\\r\\n"
+        "Cache-Control: no-cache\\r\\n"
+        "Connection: close\\r\\n\\r\\n",
+        size);
+    if (!write_all(ssl, header.data(), header.size())) return false;
+
+    std::array<char, 16 * 1024> buffer{};
+    while (file)
+    {
+        file.read(buffer.data(), buffer.size());
+        const std::streamsize read = file.gcount();
+        if (read > 0 && !write_all(ssl, buffer.data(), static_cast<std::size_t>(read)))
+            return false;
+    }
+    return true;
+}
+
 
 void https::listener()
 {
