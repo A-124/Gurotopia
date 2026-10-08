@@ -78,7 +78,8 @@ static bool proxy_official_asset(SSL *client_ssl, const std::string &path)
     constexpr char prefix[] = "/0098/024920264/cache";
     if (!path.starts_with("/assets/")) return false;
 
-    const std::string upstream_path = std::format("{}{}", prefix, path.substr(std::string_view("/assets").size()));
+    const std::string upstream_path =
+        std::format("{}{}", prefix, path.substr(std::string_view("/assets").size()));
 
     addrinfo hints{};
     hints.ai_family = AF_UNSPEC;
@@ -101,11 +102,7 @@ static bool proxy_official_asset(SSL *client_ssl, const std::string &path)
     if (fd == INVALID_SOCKET) return false;
 
     SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
-    if (!ctx)
-    {
-        cross_close(fd);
-        return false;
-    }
+    if (!ctx) { cross_close(fd); return false; }
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, nullptr);
 
     SSL *upstream = SSL_new(ctx);
@@ -120,23 +117,25 @@ static bool proxy_official_asset(SSL *client_ssl, const std::string &path)
     SSL_set_fd(upstream, fd);
 
     bool ok = SSL_connect(upstream) == 1;
+    std::vector<char> response;
     if (ok)
     {
         const std::string request = std::format(
             "GET {} HTTP/1.1\r\n"
             "Host: {}\r\n"
             "User-Agent: Growtopia\r\n"
+            "Accept-Encoding: identity\r\n"
             "Connection: close\r\n\r\n",
             upstream_path, host);
 
         ok = write_all(upstream, request.data(), request.size());
 
-        std::array<char, 16 * 1024> buffer{};
+        std::array<char, 32 * 1024> buffer{};
         while (ok)
         {
             const int n = SSL_read(upstream, buffer.data(), static_cast<int>(buffer.size()));
             if (n <= 0) break;
-            ok = write_all(client_ssl, buffer.data(), static_cast<std::size_t>(n));
+            response.insert(response.end(), buffer.data(), buffer.data() + n);
         }
     }
 
@@ -145,7 +144,71 @@ static bool proxy_official_asset(SSL *client_ssl, const std::string &path)
     SSL_CTX_free(ctx);
     shutdown(fd, 2);
     cross_close(fd);
-    return ok;
+
+    if (!ok || response.empty()) return false;
+
+    const auto header_end_it = std::search(
+        response.begin(), response.end(),
+        "\r\n\r\n", "\r\n\r\n" + 4);
+    if (header_end_it == response.end()) return false;
+
+    const std::size_t header_size =
+        static_cast<std::size_t>(header_end_it - response.begin()) + 4;
+    const std::string headers(response.data(), header_size);
+    const auto first_line_end = headers.find("\r\n");
+    const std::string status_line =
+        first_line_end == std::string::npos ? std::string{} : headers.substr(0, first_line_end);
+
+    if (!status_line.starts_with("HTTP/1.1 200") && !status_line.starts_with("HTTP/2 200"))
+    {
+        std::printf("[https] CDN returned: %s for %s\n", status_line.c_str(), path.c_str());
+        return false;
+    }
+
+    std::vector<char> body(response.begin() + header_size, response.end());
+
+    // Never forward chunked framing to the Growtopia asset downloader.
+    // The client expects a normal HTTP body with a Content-Length.
+    const std::string lower_headers = [&] {
+        std::string v = headers;
+        std::transform(v.begin(), v.end(), v.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return v;
+    }();
+
+    if (lower_headers.find("transfer-encoding: chunked") != std::string::npos)
+    {
+        std::vector<char> decoded;
+        std::size_t p = 0;
+        while (p < body.size())
+        {
+            const auto e = std::search(body.begin() + p, body.end(), "\r\n", "\r\n" + 2);
+            if (e == body.end()) return false;
+            const std::string size_text(body.begin() + p, e);
+            std::size_t chunk_size = 0;
+            try { chunk_size = std::stoull(size_text, nullptr, 16); }
+            catch (...) { return false; }
+            p = static_cast<std::size_t>(e - body.begin()) + 2;
+            if (chunk_size == 0) break;
+            if (p + chunk_size + 2 > body.size()) return false;
+            decoded.insert(decoded.end(), body.begin() + p, body.begin() + p + chunk_size);
+            p += chunk_size + 2;
+        }
+        body.swap(decoded);
+    }
+
+    std::printf("[https] CDN proxy: %s (%zu bytes)\n", path.c_str(), body.size());
+
+    const std::string out_header = std::format(
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: application/octet-stream\r\n"
+        "Content-Length: {}\r\n"
+        "Cache-Control: no-cache\r\n"
+        "Connection: close\r\n\r\n",
+        body.size());
+
+    return write_all(client_ssl, out_header.data(), out_header.size()) &&
+           (body.empty() || write_all(client_ssl, body.data(), body.size()));
 }
 
 static bool serve_asset(SSL *ssl, const std::string &path)
