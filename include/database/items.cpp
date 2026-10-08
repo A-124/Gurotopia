@@ -292,6 +292,21 @@ bool rebuild_custom_items()
                     record.insert(record.begin() + texture_start, def.texture.begin(), def.texture.end());
                     const u_short new_len = static_cast<u_short>(def.texture.size());
                     write_u16(record, texture_len_pos, new_len);
+
+                    const std::filesystem::path texture_path =
+                        std::filesystem::path("resources/custom_assets") /
+                        std::filesystem::path(def.texture).filename();
+                    std::ifstream texture_file(texture_path, std::ios::binary);
+                    if (texture_file) {
+                        std::vector<u_char> texture_data(
+                            (std::istreambuf_iterator<char>(texture_file)),
+                            std::istreambuf_iterator<char>());
+                        const u_int texture_hash =
+                            hash_bytes(texture_data.data(), texture_data.size());
+                        const std::size_t hash_pos = texture_start + new_len;
+                        if (hash_pos + sizeof(texture_hash) <= record.size())
+                            std::memcpy(record.data() + hash_pos, &texture_hash, sizeof(texture_hash));
+                    }
                 }
             }
         }
