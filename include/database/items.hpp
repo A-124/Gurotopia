@@ -200,3 +200,4 @@ extern std::vector<u_char> im_data;
 
 extern bool decode_items();
 extern bool rebuild_custom_items();
+extern const ::item* find_custom_runtime_item(u_short id) noexcept;
