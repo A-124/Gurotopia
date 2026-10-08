@@ -6,6 +6,7 @@
 #include "database/custom_content.hpp"
 
 std::vector<::item> items;
+const ::item* find_custom_runtime_item(u_short id) noexcept;
 namespace {
 std::vector<std::vector<u_char>> item_records;
 std::vector<::item> custom_runtime_items;
