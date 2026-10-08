@@ -79,14 +79,14 @@ static bool serve_asset(SSL *ssl, const std::string &path)
         constexpr std::size_t header_size = sizeof(::gamePacket);
         if (im_data.size() <= header_size) return false;
         const auto *body = im_data.data() + header_size;
-        std::printf("[https] serving custom items.dat (%zu bytes, hash=%u)\\n", im_data.size() - header_size, item_data_hash());
+        std::printf("[https] serving custom items.dat (%zu bytes, hash=%u)\n", im_data.size() - header_size, item_data_hash());
         const std::size_t body_size = im_data.size() - header_size;
         const std::string header = std::format(
-            "HTTP/1.1 200 OK\\r\\n"
-            "Content-Type: application/octet-stream\\r\\n"
-            "Content-Length: {}\\r\\n"
-            "Cache-Control: no-cache\\r\\n"
-            "Connection: close\\r\\n\\r\\n",
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: application/octet-stream\r\n"
+            "Content-Length: {}\r\n"
+            "Cache-Control: no-cache\r\n"
+            "Connection: close\r\n\r\n",
             body_size);
         return write_all(ssl, header.data(), header.size()) &&
                write_all(ssl, body, body_size);
@@ -103,18 +103,18 @@ static bool serve_asset(SSL *ssl, const std::string &path)
         std::filesystem::path("resources/custom_assets") / filename;
     std::ifstream file(file_path, std::ios::binary | std::ios::ate);
     if (!file) return false;
-    std::printf("[https] serving custom asset: %s\\n", filename.c_str());
+    std::printf("[https] serving custom asset: %s\n", filename.c_str());
 
     const std::streamsize size = file.tellg();
     if (size < 0) return false;
     file.seekg(0, std::ios::beg);
 
     const std::string header = std::format(
-        "HTTP/1.1 200 OK\\r\\n"
-        "Content-Type: application/octet-stream\\r\\n"
-        "Content-Length: {}\\r\\n"
-        "Cache-Control: no-cache\\r\\n"
-        "Connection: close\\r\\n\\r\\n",
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: application/octet-stream\r\n"
+        "Content-Length: {}\r\n"
+        "Cache-Control: no-cache\r\n"
+        "Connection: close\r\n\r\n",
         size);
     if (!write_all(ssl, header.data(), header.size())) return false;
 
@@ -245,9 +245,9 @@ void https::listener()
                     if (!serve_asset(ssl, path))
                     {
                         const std::string not_found =
-                            "HTTP/1.1 404 Not Found\\r\\n"
-                            "Content-Length: 0\\r\\n"
-                            "Connection: close\\r\\n\\r\\n";
+                            "HTTP/1.1 404 Not Found\r\n"
+                            "Content-Length: 0\r\n"
+                            "Connection: close\r\n\r\n";
                         SSL_write(ssl, not_found.data(), static_cast<int>(not_found.size()));
                     }
                 }
