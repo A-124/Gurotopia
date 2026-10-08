@@ -251,7 +251,7 @@ bool rebuild_custom_items()
 
     u_int total_count = vanilla_count;
     for (const auto& [id, def] : custom_content::items()) {
-        if (id < 0 || id > 65535) continue;
+        if (id < 1000 || id > 65535) continue;
         std::size_t base_index = item_records.size();
         for (std::size_t n = 0; n < items.size(); ++n)
             if (items[n].id == static_cast<u_short>(def.base_item)) { base_index = n; break; }
