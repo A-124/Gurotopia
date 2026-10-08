@@ -1,7 +1,7 @@
 #include "pch.hpp"
 #include <fstream>
 #include <sstream>
-#include "quest_system.hpp"
+#include "gameplay/quest_system.hpp"
 namespace quest_system {
 namespace { std::unordered_map<int,quest> quests; }
 bool reload(){
