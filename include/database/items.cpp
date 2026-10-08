@@ -242,9 +242,16 @@ bool rebuild_custom_items()
 
     u_int total_count = vanilla_count;
     for (const auto& [id, def] : custom_content::items()) {
-        if (id < 0 || id > 65535 || static_cast<std::size_t>(def.base_item) >= item_records.size()) continue;
-        if (id < static_cast<int>(items.size())) continue;
-        const auto& base = item_records[def.base_item];
+        if (id < 0 || id > 65535) continue;
+        std::size_t base_index = item_records.size();
+        for (std::size_t n = 0; n < items.size(); ++n)
+            if (items[n].id == static_cast<u_short>(def.base_item)) { base_index = n; break; }
+        if (base_index == item_records.size()) continue;
+        bool vanilla_id = false;
+        for (const auto& vanilla : items)
+            if (vanilla.id == static_cast<u_short>(id)) { vanilla_id = true; break; }
+        if (vanilla_id) continue;
+        const auto& base = item_records[base_index];
         if (base.size() < 10) continue;
 
         std::vector<u_char> record = base;
