@@ -236,8 +236,17 @@ void https::listener()
                 const std::size_t line_len = eol ? static_cast<std::size_t>(eol - buf) : static_cast<std::size_t>(rbytes);
                 printf("%.*s\n", static_cast<int>(std::min(line_len, static_cast<std::size_t>(128))), buf);
 
-                int wbytes = SSL_write(ssl, response.c_str(), static_cast<int>(response.size()));
-                if (wbytes <= 0) ERR_print_errors_fp(stderr); // @todo support retryable
+                const std::string path = request_path(buf);
+                if (std::string_view(buf, static_cast<std::size_t>(rbytes)).starts_with("GET ") &&
+                    serve_asset(ssl, path))
+                {
+                    // Asset response has already been written.
+                }
+                else
+                {
+                    const int wbytes = SSL_write(ssl, response.c_str(), static_cast<int>(response.size()));
+                    if (wbytes <= 0) ERR_print_errors_fp(stderr); // @todo support retryable
+                }
             }
         }
 
