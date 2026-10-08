@@ -309,6 +309,15 @@ bool rebuild_custom_items()
                     const u_short new_len = static_cast<u_short>(def.texture.size());
                     write_u16(record, texture_len_pos, new_len);
 
+                    // Custom RTTEX files are standalone assets, not the original
+                    // sprite sheets. Start their item sprite at cell (0, 0).
+                    const std::size_t texture_x_pos = texture_start + new_len + sizeof(u_int) + 1;
+                    const std::size_t texture_y_pos = texture_x_pos + 1;
+                    if (texture_y_pos < record.size()) {
+                        write_u8(record, texture_x_pos, 0);
+                        write_u8(record, texture_y_pos, 0);
+                    }
+
                     const std::filesystem::path texture_path =
                         std::filesystem::path("resources/custom_assets") /
                         std::filesystem::path(def.texture).filename();
