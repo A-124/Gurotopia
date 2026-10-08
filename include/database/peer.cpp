@@ -209,7 +209,7 @@ u_short peer::emplace(::slot slot)
     if (auto it = std::ranges::find(this->slots, slot.id, &::slot::id); it != this->slots.end()) 
     {
         const u_short excess = std::max(0, (it->count + slot.count) - 200);
-        it->count = std::min(it->count + slot.count, 200);
+        it->count = std::clamp(it->count + slot.count, 0, 200); // @note never let a removal push the count negative
         if (it->count == 0)
         {
             const ::item &item = id_to_item(it->id);
@@ -223,7 +223,7 @@ u_short peer::emplace(::slot slot)
         this->save_inventory();
         return excess;
     }
-    else
+    else if (slot.count > 0) // @note removing an item the peer doesn't have must not create a bogus negative slot
     {
         this->slots.emplace_back(std::move(slot)); // @note no such item in inventory, so we create a new entry.
         this->save_inventory();

@@ -1,0 +1,192 @@
+diff -ruN '--exclude=build' orig/Gurotopia/include/database/database.hpp g/Gurotopia/include/database/database.hpp
+--- orig/Gurotopia/include/database/database.hpp	2026-10-08 15:59:36.000000000 +0000
++++ g/Gurotopia/include/database/database.hpp	2026-10-08 10:00:04.415395963 +0000
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <cstring>
++#include <string>
++#include <vector>
++
+ #include <mysql/mysql.h>
+ 
+ extern MYSQL *db;
+diff -ruN '--exclude=build' orig/Gurotopia/include/database/peer.cpp g/Gurotopia/include/database/peer.cpp
+--- orig/Gurotopia/include/database/peer.cpp	2026-10-08 17:32:26.000000000 +0000
++++ g/Gurotopia/include/database/peer.cpp	2026-10-08 10:01:04.490073419 +0000
+@@ -209,7 +209,7 @@
+     if (auto it = std::ranges::find(this->slots, slot.id, &::slot::id); it != this->slots.end()) 
+     {
+         const u_short excess = std::max(0, (it->count + slot.count) - 200);
+-        it->count = std::min(it->count + slot.count, 200);
++        it->count = std::clamp(it->count + slot.count, 0, 200); // @note never let a removal push the count negative
+         if (it->count == 0)
+         {
+             const ::item &item = id_to_item(it->id);
+@@ -223,7 +223,7 @@
+         this->save_inventory();
+         return excess;
+     }
+-    else
++    else if (slot.count > 0) // @note removing an item the peer doesn't have must not create a bogus negative slot
+     {
+         this->slots.emplace_back(std::move(slot)); // @note no such item in inventory, so we create a new entry.
+         this->save_inventory();
+diff -ruN '--exclude=build' orig/Gurotopia/include/database/world.cpp g/Gurotopia/include/database/world.cpp
+--- orig/Gurotopia/include/database/world.cpp	2026-10-08 15:59:36.000000000 +0000
++++ g/Gurotopia/include/database/world.cpp	2026-10-08 10:00:17.289441609 +0000
+@@ -613,8 +613,11 @@
+ 
+ void merge_object(ENetEvent &event, ::slot slot, const ::pos &pos, ::world &world)
+ {
++    if (slot.id == 112/*gem*/) return; // @note gems never stack: each pile keeps its own denomination so the client draws the right gem
++
++    // @note only merge into a stack that still has room (a full stack earlier in the list must not block the rest)
+     auto object = std::ranges::find_if(world.objects, [&](const ::object &object) {
+-        return object.id == slot.id && (object.pos.by_32(true) == pos.by_32(true));
++        return object.id == slot.id && object.count < 200 && (object.pos.by_32(true) == pos.by_32(true));
+     });
+     if (object == world.objects.end()) return; // @note add_object re-checks; never merge into nothing
+     const int room = 200 - object->count;
+@@ -646,26 +649,32 @@
+ 
+ int add_object(ENetEvent& event, ::slot slot, const ::pos& pos, ::world &world)
+ {
+-    /* @todo got a little messy */
+-    auto object = std::ranges::find_if(world.objects, [&](const ::object &object) {
+-        return object.id == slot.id && (object.pos.by_32(true) == pos.by_32(true));
+-    });
+-    if (object != world.objects.end() && object->count < 200/*@todo*/) 
++    if (slot.count <= 0) return 0; // @note nothing to drop
++
++    if (slot.id != 112/*gem*/) // @note gems are never merged, see merge_object
+     {
+-        merge_object(event, slot, pos, world);
+-        return object->uid;
++        auto object = std::ranges::find_if(world.objects, [&](const ::object &object) {
++            return object.id == slot.id && object.count < 200 && (object.pos.by_32(true) == pos.by_32(true));
++        });
++        if (object != world.objects.end())
++        {
++            const int uid = static_cast<int>(object->uid); // @note merge_object may grow the vector via overflow spill
++            merge_object(event, slot, pos, world);
++            return uid;
++        }
+     }
+-    ::object it = world.objects.emplace_back(::object(slot.id, slot.count, pos, ++world.last_object_uid)); // @note a iterator ahead of time
++    const ::object &it = world.objects.emplace_back(::object(slot.id, static_cast<u_short>(slot.count), pos, ++world.last_object_uid));
++    const int uid = static_cast<int>(it.uid);
+ 
+     item_change_object(event, ::gamePacket{
+         .netid = (int)0xffffffff,
+-        .uid   = (int)it.uid,
++        .uid   = uid,
+         .count = static_cast<float>(slot.count),
+-        .id    = it.id,
++        .id    = slot.id,
+         .pos   = pos
+     });
+     world.save_objects();
+-    return it.uid;
++    return uid;
+ }
+ 
+ void add_drop(ENetEvent &event, ::slot im, ::pos pos, ::world &world) // @todo
+diff -ruN '--exclude=build' orig/Gurotopia/include/gamePacket/item_activate_object.cpp g/Gurotopia/include/gamePacket/item_activate_object.cpp
+--- orig/Gurotopia/include/gamePacket/item_activate_object.cpp	2026-10-08 15:59:36.000000000 +0000
++++ g/Gurotopia/include/gamePacket/item_activate_object.cpp	2026-10-08 10:00:45.326400489 +0000
+@@ -13,24 +13,49 @@
+     auto world = std::ranges::find(worlds, pPeer->recent_worlds.back(), &::world::name);
+     if (world == worlds.end()) return;
+ 
+-    auto object = std::ranges::find(world->objects, gamePacket.id, &::object::uid);
++    auto object = std::ranges::find(world->objects, static_cast<u_int>(gamePacket.id), &::object::uid);
++    if (object == world->objects.end()) return; // @note already collected by someone else (or a stale/spoofed uid)
++
+     if (object->id != 112/*gem*/)
+     {
+         const ::item &item = id_to_item(object->id);
+ 
+-        u_short remember = object->count;
+-        object->count = pPeer->emplace(::slot(object->id, object->count)); // @return remains after reaching 200
+-        if (object->count > 0)
++        // @note a new item type needs a free backpack slot; leave the drop on the ground instead of overfilling the backpack.
++        const auto held = std::ranges::find(pPeer->slots, object->id, &::slot::id);
++        const bool has_room = held != pPeer->slots.end()
++            ? held->count < 200
++            : pPeer->slots.size() < static_cast<std::size_t>(std::max(pPeer->slot_size, 0));
++        if (!has_room)
+         {
+-            add_object(event, ::slot(object->id, object->count), object->pos, *world);
++            on::ConsoleMessage(event.peer, "`4Your backpack is full.``");
++            return;
+         }
+-        u_short collected = remember - object->count;
+-        if (collected ==/*unsigned*/ 0) return; // @todo
++
++        const u_short remember = object->count;
++        const u_short remains = pPeer->emplace(::slot(object->id, object->count)); // @return remains after reaching 200
++        const u_short collected = remember - remains;
++        if (collected == 0) return;
+ 
+         on::ConsoleMessage(event.peer, (item.rarity >= 999) ?
+             std::format("Collected `w{} {}``.",                collected, item.raw_name) :
+             std::format("Collected `w{} {}``. Rarity: `w{}``", collected, item.raw_name, item.rarity)
+         );
++
++        if (remains > 0)
++        {
++            // @note partial pickup: shrink the SAME object in place. (re-adding it merged it into itself and duplicated the leftover)
++            object->count = remains;
++            item_change_object(event, ::gamePacket{
++                .netid = (int)0xfffffffd,
++                .uid   = (int)object->uid,
++                .count = static_cast<float>(object->count),
++                .id    = object->id,
++                .pos   = object->pos
++            });
++            world->save_objects();
++            return;
++        }
++        object->count = 0;
+     }
+     else 
+     {
+@@ -57,6 +82,6 @@
+     }
+     remove_object(event, object->uid);
+ 
+-    if (object->count == 0) world->objects.erase(object);
++    world->objects.erase(object);
+     world->save_objects();
+ }
+diff -ruN '--exclude=build' orig/Gurotopia/include/gamePacket/tile_change.cpp g/Gurotopia/include/gamePacket/tile_change.cpp
+--- orig/Gurotopia/include/gamePacket/tile_change.cpp	2026-10-08 15:59:36.000000000 +0000
++++ g/Gurotopia/include/gamePacket/tile_change.cpp	2026-10-08 10:00:54.686932172 +0000
+@@ -13,6 +13,7 @@
+ #include "item_activate_object.hpp"
+ #include "action/dialog_return/vending.hpp"
+ #include "automate/holiday.hpp"
++#include "commands/event_manager.hpp"
+ 
+ #include "tile_change.hpp"
+ 
+@@ -473,13 +474,13 @@
+                         (item.rarity >= 32) ? 9 :
+                         (item.rarity >= 24) ? 5 : 1;
+ 
+-                    if (!RandomRange(0, (rarity_to_gem > 1) ? 1 : 4)) // @note double chances if farmable.
++                    if (!RandomRange(0, (rarity_to_gem > 1) ? 2 : 4)) // @note double chances if farmable. (RandomRange's upper bound is exclusive: (0, 1) was always 0, i.e. a 100% drop)
+                     {
+-                        /* @todo merge gems more effectively */
+-                        u_char gems = RandomRange(1, rarity_to_gem);
+-                        for (short i : {10, 5, 1}/* gem type */)
++                        // @note RandomRange's upper bound is exclusive, so +1 makes rarity_to_gem a possible roll.
++                        int gems = static_cast<int>(RandomRange(1, rarity_to_gem + 1) * get_gem_multiplier());
++                        for (int i : {100, 50, 10, 5, 1}/* gem type, the denominations the client draws */)
+                             for (; gems >= i; gems -= i/* downgrade type */)
+-                                add_drop(event, {112, i}, gamePacket.punch.by_32(), *world);
++                                add_drop(event, {112, static_cast<short>(i)}, gamePacket.punch.by_32(), *world);
+                     }
+                     const bool never_drops_seed = (item.property & 0x04) != 0;
+                     if (!never_drops_seed && !RandomRange(0, (rarity_to_gem > 1) ? 2 : 4))

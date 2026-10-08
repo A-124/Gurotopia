@@ -613,8 +613,11 @@ void item_change_object(ENetEvent &event, ::gamePacket gamePacket)
 
 void merge_object(ENetEvent &event, ::slot slot, const ::pos &pos, ::world &world)
 {
+    if (slot.id == 112/*gem*/) return; // @note gems never stack: each pile keeps its own denomination so the client draws the right gem
+
+    // @note only merge into a stack that still has room (a full stack earlier in the list must not block the rest)
     auto object = std::ranges::find_if(world.objects, [&](const ::object &object) {
-        return object.id == slot.id && (object.pos.by_32(true) == pos.by_32(true));
+        return object.id == slot.id && object.count < 200 && (object.pos.by_32(true) == pos.by_32(true));
     });
     if (object == world.objects.end()) return; // @note add_object re-checks; never merge into nothing
     const int room = 200 - object->count;
@@ -646,26 +649,32 @@ void remove_object(ENetEvent& event, signed uid)
 
 int add_object(ENetEvent& event, ::slot slot, const ::pos& pos, ::world &world)
 {
-    /* @todo got a little messy */
-    auto object = std::ranges::find_if(world.objects, [&](const ::object &object) {
-        return object.id == slot.id && (object.pos.by_32(true) == pos.by_32(true));
-    });
-    if (object != world.objects.end() && object->count < 200/*@todo*/) 
+    if (slot.count <= 0) return 0; // @note nothing to drop
+
+    if (slot.id != 112/*gem*/) // @note gems are never merged, see merge_object
     {
-        merge_object(event, slot, pos, world);
-        return object->uid;
+        auto object = std::ranges::find_if(world.objects, [&](const ::object &object) {
+            return object.id == slot.id && object.count < 200 && (object.pos.by_32(true) == pos.by_32(true));
+        });
+        if (object != world.objects.end())
+        {
+            const int uid = static_cast<int>(object->uid); // @note merge_object may grow the vector via overflow spill
+            merge_object(event, slot, pos, world);
+            return uid;
+        }
     }
-    ::object it = world.objects.emplace_back(::object(slot.id, slot.count, pos, ++world.last_object_uid)); // @note a iterator ahead of time
+    const ::object &it = world.objects.emplace_back(::object(slot.id, static_cast<u_short>(slot.count), pos, ++world.last_object_uid));
+    const int uid = static_cast<int>(it.uid);
 
     item_change_object(event, ::gamePacket{
         .netid = (int)0xffffffff,
-        .uid   = (int)it.uid,
+        .uid   = uid,
         .count = static_cast<float>(slot.count),
-        .id    = it.id,
+        .id    = slot.id,
         .pos   = pos
     });
     world.save_objects();
-    return it.uid;
+    return uid;
 }
 
 void add_drop(ENetEvent &event, ::slot im, ::pos pos, ::world &world) // @todo

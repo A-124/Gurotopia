@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cstring>
+#include <string>
+#include <vector>
+
 #include <mysql/mysql.h>
 
 extern MYSQL *db;

@@ -13,6 +13,7 @@
 #include "item_activate_object.hpp"
 #include "action/dialog_return/vending.hpp"
 #include "automate/holiday.hpp"
+#include "commands/event_manager.hpp"
 
 #include "tile_change.hpp"
 
@@ -473,13 +474,13 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                         (item.rarity >= 32) ? 9 :
                         (item.rarity >= 24) ? 5 : 1;
 
-                    if (!RandomRange(0, (rarity_to_gem > 1) ? 1 : 4)) // @note double chances if farmable.
+                    if (!RandomRange(0, (rarity_to_gem > 1) ? 2 : 4)) // @note double chances if farmable. (RandomRange's upper bound is exclusive: (0, 1) was always 0, i.e. a 100% drop)
                     {
-                        /* @todo merge gems more effectively */
-                        u_char gems = RandomRange(1, rarity_to_gem);
-                        for (short i : {10, 5, 1}/* gem type */)
+                        // @note RandomRange's upper bound is exclusive, so +1 makes rarity_to_gem a possible roll.
+                        int gems = static_cast<int>(RandomRange(1, rarity_to_gem + 1) * get_gem_multiplier());
+                        for (int i : {100, 50, 10, 5, 1}/* gem type, the denominations the client draws */)
                             for (; gems >= i; gems -= i/* downgrade type */)
-                                add_drop(event, {112, i}, gamePacket.punch.by_32(), *world);
+                                add_drop(event, {112, static_cast<short>(i)}, gamePacket.punch.by_32(), *world);
                     }
                     const bool never_drops_seed = (item.property & 0x04) != 0;
                     if (!never_drops_seed && !RandomRange(0, (rarity_to_gem > 1) ? 2 : 4))
