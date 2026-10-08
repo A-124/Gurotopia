@@ -128,6 +128,8 @@
 > - **Windows**: `C:\Windows\System32\drivers\etc\hosts`
 > - **Linux/macOS**: `/etc/hosts`
 > ```
+> 127.0.0.1 www.growtopia1.com
+> 127.0.0.1 www.growtopia2.com
 
 
 # ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/settings.svg) Commands
@@ -140,6 +142,3 @@
 # ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/law.svg) License
 
 Licensed under the **Apache-2.0 License** — see [LICENSE](LICENSE) for details.
-> 127.0.0.1 www.growtopia1.com
-> 127.0.0.1 www.growtopia2.com
-> ```
