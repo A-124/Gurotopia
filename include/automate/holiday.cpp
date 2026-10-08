@@ -14,6 +14,7 @@ std::tm localtime()
 void check_for_holiday()
 {
     std::tm time = localtime();
+    holiday = H_NONE;
 
     if (time.tm_mon == 1/*feb*/ && (time.tm_mday >= 13 && time.tm_mday <= 13+7)) holiday = H_VALENTINES;
     if (time.tm_mon == 2/*march*/ && (time.tm_mday >= 14 && time.tm_mday <= 14+7)) holiday = H_PATRICKS;
