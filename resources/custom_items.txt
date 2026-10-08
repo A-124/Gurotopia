@@ -1,3 +1,6 @@
 # Server-side custom content
 # item|id|name|base_item|type|rarity|tradeable
 # recipe|result_id|amount|ingredient_id:amount,ingredient_id:amount
+
+# Example (use a real vanilla result id to test crafting):
+# recipe|2|1|18:2
