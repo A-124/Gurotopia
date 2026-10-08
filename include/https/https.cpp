@@ -72,6 +72,82 @@ static std::string request_path(const char *request)
     return std::string(line.substr(begin + 1, end - begin - 1));
 }
 
+static bool proxy_official_asset(SSL *client_ssl, const std::string &path)
+{
+    constexpr char host[] = "ubistatic-a.akamaihd.net";
+    constexpr char prefix[] = "/0098/024920264/cache";
+    if (!path.starts_with("/assets/")) return false;
+
+    const std::string upstream_path = std::format("{}{}", prefix, path.substr(std::string_view("/assets").size()));
+
+    addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    addrinfo *results = nullptr;
+    if (getaddrinfo(host, "443", &hints, &results) != 0) return false;
+
+    SOCKET fd = INVALID_SOCKET;
+    for (addrinfo *it = results; it; it = it->ai_next)
+    {
+        fd = static_cast<SOCKET>(::socket(it->ai_family, it->ai_socktype, it->ai_protocol));
+        if (fd == INVALID_SOCKET) continue;
+        if (::connect(fd, it->ai_addr, static_cast<int>(it->ai_addrlen)) == 0) break;
+        cross_close(fd);
+        fd = INVALID_SOCKET;
+    }
+    freeaddrinfo(results);
+    if (fd == INVALID_SOCKET) return false;
+
+    SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
+    if (!ctx)
+    {
+        cross_close(fd);
+        return false;
+    }
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, nullptr);
+
+    SSL *upstream = SSL_new(ctx);
+    if (!upstream)
+    {
+        SSL_CTX_free(ctx);
+        cross_close(fd);
+        return false;
+    }
+
+    SSL_set_tlsext_host_name(upstream, host);
+    SSL_set_fd(upstream, fd);
+
+    bool ok = SSL_connect(upstream) == 1;
+    if (ok)
+    {
+        const std::string request = std::format(
+            "GET {} HTTP/1.1\r\n"
+            "Host: {}\r\n"
+            "User-Agent: Growtopia\r\n"
+            "Connection: close\r\n\r\n",
+            upstream_path, host);
+
+        ok = write_all(upstream, request.data(), request.size());
+
+        std::array<char, 16 * 1024> buffer{};
+        while (ok)
+        {
+            const int n = SSL_read(upstream, buffer.data(), static_cast<int>(buffer.size()));
+            if (n <= 0) break;
+            ok = write_all(client_ssl, buffer.data(), static_cast<std::size_t>(n));
+        }
+    }
+
+    SSL_shutdown(upstream);
+    SSL_free(upstream);
+    SSL_CTX_free(ctx);
+    shutdown(fd, 2);
+    cross_close(fd);
+    return ok;
+}
+
 static bool serve_asset(SSL *ssl, const std::string &path)
 {
     if (path == "/assets/items.dat" || path.ends_with("/items.dat"))
@@ -244,20 +320,18 @@ void https::listener()
                 {
                     if (!serve_asset(ssl, path))
                     {
-                        // The CDN path is shared by vanilla and custom assets.
-                        // Keep vanilla assets on the official CDN instead of
-                        // returning 404 from Gurotopia's local HTTPS listener.
-                        constexpr std::string_view official_cdn =
-                            "https://ubistatic-a.akamaihd.net/0098/024920264/cache";
-                        const std::string location = std::format("{}{}", official_cdn, path.substr(std::string_view("/assets").size()));
-                        const std::string redirect =
-                            std::format(
-                                "HTTP/1.1 302 Found\r\n"
-                                "Location: {}\r\n"
+                        // Vanilla assets must be proxied through the server.
+                        // The Growtopia downloader does not reliably follow HTTP
+                        // redirects for CDN assets, so a 302 makes valid vanilla
+                        // textures appear missing/wrong.
+                        if (!proxy_official_asset(ssl, path))
+                        {
+                            const std::string not_found =
+                                "HTTP/1.1 404 Not Found\r\n"
                                 "Content-Length: 0\r\n"
-                                "Connection: close\r\n\r\n",
-                                location);
-                        SSL_write(ssl, redirect.data(), static_cast<int>(redirect.size()));
+                                "Connection: close\r\n\r\n";
+                            write_all(ssl, not_found.data(), not_found.size());
+                        }
                     }
                 }
                 else
