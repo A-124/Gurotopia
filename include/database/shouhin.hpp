@@ -15,4 +15,4 @@ public:
 }; 
 extern std::vector<std::pair<short, shouhin>> shouhin_tachi; // @note {tab, shouhin}
 
-extern void parse_store();
+extern bool parse_store();
