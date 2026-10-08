@@ -250,18 +250,18 @@ bool rebuild_custom_items()
         std::vector<u_char> record = base;
         u_short custom_id = static_cast<u_short>(id);
         write_u16(record, 0, custom_id);
-        write_u8(record, 4, static_cast<u_char>(std::clamp(def.type, 0, 255)));
+        write_u8(record, 6, static_cast<u_char>(std::clamp(def.type, 0, 255)));
         // Name length starts at byte 6 in a record: id(2), padding(2), property(1), cat(1).
         // Keep the record shape compatible while replacing the encoded name.
         u_short name_len{}; std::memcpy(&name_len, record.data() + 6, sizeof(name_len));
-        const std::size_t name_start = 8;
+        const std::size_t name_start = 10;
         if (name_start + name_len > record.size() || def.name.size() > 32767) continue;
         std::vector<u_char> encoded(def.name.size());
         for (std::size_t n=0; n<def.name.size(); ++n)
             encoded[n] = static_cast<u_char>(def.name[n]) ^ static_cast<u_char>(item_name_token[(n + custom_id) % item_name_token.size()]);
         record.erase(record.begin() + name_start, record.begin() + name_start + name_len);
         record.insert(record.begin() + name_start, encoded.begin(), encoded.end());
-        write_u16(record, 6, static_cast<u_short>(encoded.size()));
+        write_u16(record, 8, static_cast<u_short>(encoded.size()));
 
         // Rarity is after the clothing byte and several fixed fields, so retain the
         // base value for now; the server-side definition still owns the canonical rarity.
