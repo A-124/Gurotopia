@@ -1,0 +1,2 @@
+# id|name|trigger|target
+# 1|Welcome to Gurotopia|player_entered_world|1
