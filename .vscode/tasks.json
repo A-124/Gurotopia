@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Gurotopia",
+            "type": "process",
+            "command": "D:/msys64/usr/bin/bash.exe",
+            "args": [
+                "-c",
+                "export PATH='/d/msys64/ucrt64/bin:/d/msys64/usr/bin:$PATH' && make -j1"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Clean Gurotopia",
+            "type": "process",
+            "command": "D:/msys64/usr/bin/bash.exe",
+            "args": [
+                "-c",
+                "export PATH='/d/msys64/ucrt64/bin:/d/msys64/usr/bin:$PATH' && make clean"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        }
+    ]
+}

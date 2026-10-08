@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        
+        {
+            "name": "Run Gurotopia",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "main.exe", // assume running on windows not linux
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "${env:PATH};D:/msys64/ucrt64/bin;D:/msys64/usr/bin"
+                }
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
+}

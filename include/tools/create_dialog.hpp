@@ -1,0 +1,36 @@
+#pragma once
+
+class create_dialog
+{
+    std::string _d{};
+
+public:
+    create_dialog& set_default_color(std::string code);
+    create_dialog& set_bg_color(int red, int green, int blue, int alpha);
+    create_dialog& set_border_color(int red, int green, int blue, int alpha);
+    create_dialog& add_label(std::string size, std::string label);
+    create_dialog& add_label_with_icon(std::string size, std::string label, int icon);
+    create_dialog& add_label_with_ele_icon(std::string size, std::string label, int icon, u_char element);
+    create_dialog& add_textbox(std::string label);
+    create_dialog& add_text_input(std::string id, std::string label, short set_value, short length);
+    create_dialog& add_text_input(std::string id, std::string label, std::string set_value, short length);
+    create_dialog& add_smalltext(std::string label);
+    create_dialog& embed_data(std::string id, std::string data);
+    create_dialog& embed_data(std::string id, int data);
+    create_dialog& add_spacer(std::string size);
+    create_dialog& set_custom_spacing(short x, short y);
+    create_dialog& add_layout_spacer(std::string layout);
+    create_dialog& add_button(std::string btn_id, std::string btn_name);
+    create_dialog& add_image_button(std::string btn_id, std::string image, std::string layout, std::string link);
+    create_dialog& add_custom_button(std::string btn_id, std::string image);
+    create_dialog& add_custom_label(std::string label, std::string pos);
+    create_dialog& add_custom_break();
+    create_dialog& add_custom_margin(short x, short y);
+    create_dialog& add_achieve(std::string total);
+    create_dialog& add_quick_exit();
+    create_dialog& add_popup_name(std::string popup_name);
+    create_dialog& add_player_info(std::string label, std::string progress_bar_name, int progress, int total_progress);
+    create_dialog& add_item_picker(std::string id, std::string label, std::string selection_prompt);
+
+    std::string end_dialog(std::string btn_id, std::string btn_close = "Cancel", std::string btn_return = "OK");
+};

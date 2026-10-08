@@ -1,0 +1,75 @@
+#include "pch.hpp"
+#include "onVariant/SetClothing.hpp"
+#include "commands/punch.hpp"
+#include "onVariant/ConsoleMessage.hpp"
+
+#include "item_activate.hpp"
+
+void item_activate(ENetEvent& event, ::gamePacket gamePacket)
+{
+    ::peer *pPeer = static_cast<::peer*>(event.peer->data);
+
+    const ::item &item = id_to_item(gamePacket.id);
+    if (item.cloth_type != clothing::NONE) 
+    {
+        float &current_cloth = pPeer->clothing[item.cloth_type]; // @note ID of the current clothing being changed
+
+        current_cloth = (current_cloth == gamePacket.id) ? 0 : gamePacket.id;
+
+        pPeer->update_effects();
+        pPeer->save_clothing();
+        
+        /* @note this is so we can add the latest punch effect (if any) */
+        u_short punch_id = get_punch_id(static_cast<u_int>(current_cloth));
+        if (punch_id != 0)
+            pPeer->punch_effect = punch_id;
+
+        send_varlist(event.peer, { "OnEquipNewItem", gamePacket.id }, pPeer->netid);
+        on::SetClothing(*event.peer); // @todo
+    }
+    else 
+    {
+        const auto item = std::ranges::find(pPeer->slots, gamePacket.id, &::slot::id);
+        if (item == pPeer->slots.end()) return;
+        
+        if (item->id == 242 && item->count >= 100) 
+        {
+            const u_short nokori = modify_item_inventory(event, {1796, 1});
+            if (nokori == 0) 
+            {
+                modify_item_inventory(event, {item->id, -100});
+                const std::string compressed = "You compressed 100 `2World Lock`` into a `2Diamond Lock``!";
+                send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, compressed, 0u, 1u });
+                on::ConsoleMessage(event.peer, compressed);
+            }
+        }
+        else if (item->id == 1796 && item->count >= 1)
+        {
+            const u_short nokori = modify_item_inventory(event, {242, 100});
+            short hyaku = 100 - nokori;
+            if (hyaku == 100) 
+            {
+                modify_item_inventory(event, {item->id, -1});
+                const std::string shattered = "You shattered a `2Diamond Lock`` into 100 `2World Lock``!";
+                send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, shattered, 0u, 1u });
+                on::ConsoleMessage(event.peer, shattered);
+            }
+            else modify_item_inventory(event, ::slot(242, -hyaku)); // @note return wls if can't hold 100
+        }
+        else if (item->id == 1486 && item->count >= 100) 
+        {
+            const u_short nokori = modify_item_inventory(event, {6802, 1});
+            if (nokori == 0) 
+                modify_item_inventory(event, {item->id, -100});
+        }
+        else if (item->id == 6802 && item->count >= 1)
+        {
+            const u_short nokori = modify_item_inventory(event, {1486, 100});
+            short hyaku = 100 - nokori;
+            if (hyaku == 100) 
+                modify_item_inventory(event, {item->id, -1});
+            else 
+                modify_item_inventory(event, ::slot(1486, -hyaku)); // @note return growtoken if can't hold 100
+        }
+    }
+}

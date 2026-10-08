@@ -1,0 +1,80 @@
+#include "pch.hpp"
+#include "tools/create_dialog.hpp"
+#include "info.hpp"
+
+std::vector<std::string> properties(u_char property) 
+{
+    std::vector<std::string> temp{};
+
+    if (property == 0xe) temp.emplace_back("`oA lock makes it so only you (and designated friends) can edit an area.``");
+
+    if (property & 01) temp.emplace_back("`1This item can be placed in two directions, depending on the direction you're facing.``");
+    if (property & 02) temp.emplace_back("`1This item has special properties you can adjust with the Wrench.``");
+    if (property & 04) temp.emplace_back("`1This item never drops any seeds.``");
+    if (property & 0x08) temp.emplace_back("`1This item can't be destroyed - smashing it will return it to your backpack if you have room!``");
+    if (property & 0x10) temp.emplace_back("`1This item can be transmuted.``");
+    if (property & 0x20/*@todo handle Valentine*/) temp.emplace_back("`1This item can kill zombies during a Pandemic!``");
+    if (property & 0x80) temp.emplace_back("`1This item can only be used in World-Locked worlds.``");
+
+    return temp;
+}
+
+std::vector<std::string> categories(u_char category)
+{
+    std::vector<std::string> descriptions{};
+
+    if (category & CAT_RETURN)
+        descriptions.emplace_back("`1This item returns to your backpack when destroyed, if you have room.``");
+    if (category & CAT_SUPRISING_FRUIT)
+        descriptions.emplace_back("`1A tree of this type can bear surprising fruit.``");
+    if (category & CAT_PUBLIC)
+        descriptions.emplace_back("`1This block can be broken by anyone, even in a locked world.``");
+    if (category & CAT_HOLIDAY)
+        descriptions.emplace_back("`1This item can only be created during WinterFest or Halloween.``");
+    if (category & CAT_UNTRADEABLE)
+        descriptions.emplace_back("`1This item cannot be dropped or traded.``");
+
+    return descriptions;
+}
+
+void action::info(ENetEvent& event, const std::string& header)
+{
+    const std::vector<std::string> pipes = readch(header, '|');
+
+    for (std::size_t i = 0; i < pipes.size(); ++i) 
+    {
+        if (pipes[i] == "itemID")
+        {
+            const u_short itemID = atoi(pipes[i+1].c_str());
+            if (itemID >= items.size()) return;
+
+            const ::item &item = id_to_item(itemID);
+
+            ::create_dialog create_dialog = 
+            ::create_dialog()
+                .set_default_color("`o")
+                .add_label_with_ele_icon("big", std::format("`wAbout {}``", item.raw_name), item.id, 0)
+                .add_spacer("small")
+                .add_textbox(item.info)
+                .add_spacer("small");
+
+            if (item.rarity < 999)
+                create_dialog
+                    .add_textbox(std::format("Rarity: `w{}``", item.rarity))
+                    .add_spacer("small");
+            
+            for (const std::string &prop : properties(item.property)) 
+                create_dialog.add_textbox(prop);
+            for (const std::string &category : categories(item.cat))
+                create_dialog.add_textbox(category);
+
+            send_varlist(event.peer, {
+                "OnDialogRequest",
+                create_dialog
+                    .add_spacer("small")
+                    .embed_data("itemID", item.id)
+                    .end_dialog("continue", "", "OK")
+            });
+        }
+    }
+}
