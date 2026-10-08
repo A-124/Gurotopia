@@ -242,15 +242,15 @@ bool rebuild_custom_items()
     const std::size_t header_size = sizeof(::gamePacket);
     if (im_data.size() < header_size + sizeof(u_short) + sizeof(u_int)) return false;
 
-    // Remove a previous custom suffix by rebuilding the packet from the original
-    // vanilla records. This makes repeated /reload content deterministic.
-    std::vector<u_char> rebuilt(im_data.begin(), im_data.begin() + header_size);
-    u_short version{}; std::memcpy(&version, im_data.data() + header_size, sizeof(version));
-    u_int vanilla_count{}; std::memcpy(&vanilla_count, im_data.data() + header_size + sizeof(version), sizeof(vanilla_count));
-    const std::size_t payload_start = header_size;
-    rebuilt.insert(rebuilt.end(), im_data.begin() + payload_start,
-                   im_data.begin() + payload_start + sizeof(version) + sizeof(vanilla_count));
-    for (const auto& record : item_records) rebuilt.insert(rebuilt.end(), record.begin(), record.end());
+    // Preserve the original items.dat byte-for-byte. Re-serializing parsed
+    // records is dangerous: a parser/format mismatch can corrupt vanilla
+    // texture metadata (especially hand-item sprites). Custom records are
+    // appended after the untouched vanilla database.
+    std::vector<u_char> rebuilt = im_data;
+    u_short version{};
+    std::memcpy(&version, im_data.data() + header_size, sizeof(version));
+    u_int vanilla_count{};
+    std::memcpy(&vanilla_count, im_data.data() + header_size + sizeof(version), sizeof(vanilla_count));
 
     std::vector<std::pair<u_int, std::vector<u_char>>> custom_records;
     custom_records.reserve(custom_content::items().size());
