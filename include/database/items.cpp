@@ -18,6 +18,28 @@ void write_u8(std::vector<u_char>& d, std::size_t p, u_char v) { d[p]=v; }
 void write_i32(std::vector<u_char>& d, std::size_t p, int v) { std::memcpy(d.data()+p, &v, sizeof(v)); }
 u_int hash_bytes(const u_char* data, std::size_t size) noexcept { u_int acc = 0x55555555u; for (std::size_t i = 0; i < size; ++i) acc = ((acc << 5) | (acc >> 27)) + data[i]; return acc; }
 
+// Legendary Katana is a normal single hand-clothing sprite. If an older or
+// mismatched items.dat assigns the Immortal Sonic Buster renderer to it,
+// remove only that exact renderer string without touching other fields.
+void strip_bad_katana_renderer(std::vector<u_char>& record)
+{
+    constexpr std::string_view bad{"ImmortalSonicBusterKatana.xml"};
+    for (std::size_t p = sizeof(u_int); p + sizeof(u_short) + bad.size() <= record.size(); ++p)
+    {
+        u_short len{};
+        std::memcpy(&len, record.data() + p, sizeof(len));
+        if (len != bad.size()) continue;
+        if (std::memcmp(record.data() + p + sizeof(len), bad.data(), bad.size()) != 0) continue;
+        const std::size_t end = p + sizeof(len) + bad.size();
+        record.erase(record.begin() + p, record.begin() + end);
+        const u_short zero = 0;
+        record.insert(record.begin() + p,
+                      reinterpret_cast<const u_char*>(&zero),
+                      reinterpret_cast<const u_char*>(&zero) + sizeof(zero));
+        return;
+    }
+}
+
 }
 
 const ::item &id_to_item(u_short id) noexcept // @note std::out_of_range is handled
@@ -255,6 +277,25 @@ bool rebuild_custom_items()
     u_int vanilla_count{};
     std::memcpy(&vanilla_count, vanilla.data() + header_size + sizeof(version), sizeof(vanilla_count));
 
+    // Repair only Legendary Katana (#2592) if its record contains the
+    // known incorrect Immortal Sonic Buster renderer.
+    for (std::size_t n = 0; n < items.size(); ++n)
+    {
+        if (items[n].id != 2592) continue;
+        const auto& original = item_records[n];
+        auto at = std::search(rebuilt.begin() + header_size, rebuilt.end(),
+                              original.begin(), original.end());
+        if (at != rebuilt.end())
+        {
+            const std::size_t offset = static_cast<std::size_t>(at - rebuilt.begin());
+            std::vector<u_char> fixed = original;
+            strip_bad_katana_renderer(fixed);
+            rebuilt.erase(rebuilt.begin() + offset, rebuilt.begin() + offset + original.size());
+            rebuilt.insert(rebuilt.begin() + offset, fixed.begin(), fixed.end());
+        }
+        break;
+    }
+
     std::vector<std::pair<u_int, std::vector<u_char>>> custom_records;
     custom_records.reserve(custom_content::items().size());
 
@@ -275,6 +316,7 @@ bool rebuild_custom_items()
         if (base.size() < 10) continue;
 
         std::vector<u_char> record = base;
+        strip_bad_katana_renderer(record);
         const u_short custom_id = static_cast<u_short>(id);
         write_u32(record, 0, static_cast<u_int>(custom_id));
 
