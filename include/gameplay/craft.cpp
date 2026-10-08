@@ -3,6 +3,7 @@
 #include <sstream>
 #include "database/peer.hpp"
 #include "database/custom_content.hpp"
+#include "database/item_registry.hpp"
 #include "gameplay/craft.hpp"
 
 namespace {
