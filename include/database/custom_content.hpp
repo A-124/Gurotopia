@@ -13,6 +13,7 @@ struct custom_item {
     int type{};
     int rarity{};
     bool tradeable{true};
+    std::string texture{};
 };
 struct recipe {
     int result{};
