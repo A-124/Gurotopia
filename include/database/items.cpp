@@ -17,9 +17,10 @@ void write_i32(std::vector<u_char>& d, std::size_t p, int v) { std::memcpy(d.dat
 
 const ::item &id_to_item(u_short id) noexcept // @note std::out_of_range is handled
 {
-    if (id >= items.size()) { static const ::item dummy{}; return dummy; }
-    
-    return items[id];
+    if (id < items.size()) return items[id];
+    if (const auto* custom = find_custom_runtime_item(id)) return *custom;
+    static const ::item dummy{};
+    return dummy;
 }
 
 
