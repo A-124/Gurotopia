@@ -5,13 +5,16 @@
 
 std::vector<std::pair<short, shouhin>> shouhin_tachi{};
 
-void parse_store()
+bool parse_store()
 {
     std::ifstream file("resources/store.txt");
+    if (!file) return false;
+    shouhin_tachi.clear();
     for (std::string line; std::getline(file, line); )
     {
         if (line.empty() || line.starts_with("#")) continue; // @note '#' initiates a comment
         std::vector<std::string> pipes = readch(line, '|');
+        if (pipes.size() < 9) { fprintf(stderr, "invalid store line: %s\n", line.c_str()); continue; }
         ::shouhin shouhin{
             .btn = pipes[1],
             .name = pipes[2],
@@ -24,9 +27,11 @@ void parse_store()
         std::vector<std::string> tachi = readch(pipes[8], ',');
         for (std::string &item : tachi)
         {
-            std::vector<std::string> co = readch(item, ':'); // @note 'co' short for colon
-            shouhin.items.emplace_back(stoi(co[0]), stoi(co[1]));
+            std::vector<std::string> co = readch(item, ':');
+            if (co.size() != 2) continue;
+            try { shouhin.items.emplace_back(stoi(co[0]), stoi(co[1])); } catch (...) { continue; }
         }
-        shouhin_tachi.emplace_back(stoi(pipes[0]), shouhin);
+        try { shouhin_tachi.emplace_back(stoi(pipes[0]), shouhin); } catch (...) { continue; }
     }
+    return true;
 }
