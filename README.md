@@ -132,7 +132,7 @@
 > 127.0.0.1 www.growtopia2.com
 
 
-# ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/settings.svg) Commands
+
 
 # ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/heart.svg) Credits
 
