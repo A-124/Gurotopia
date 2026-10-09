@@ -1,16 +1,27 @@
-# Server-side custom content
-# item|id|name|base_item|type|rarity|tradeable|texture_path
-# recipe|result_id|amount|ingredient_id:amount,ingredient_id:amount
-
-# Example (use a real vanilla result id to test crafting):
-# recipe|2|1|18:2
-
-# Phase 5 example (uncomment to test client-visible custom items):
-# item|20000|Guro Crystal|2|4|10|1|game/Guro_Crystal.rttex
-# recipe|20000|1|18:2
-
-# Leey Katana clones Legendary Katana (2592). Keep the client texture path
-# in the same game/ namespace used by vanilla items.dat texture paths.
-# The server resolves the basename inside resources/custom_assets/.
-item|20000|Leey Katana|2592|20|10|1|game/Leey_Katana.rttex
+# Gurotopia custom content configuration
+#
+# ITEM FORMAT (one item per line):
+# item|id|name|base_item|type|rarity|tradeable|texture_path|info
+#
+# Fields:
+# id          = unique custom item ID (1000-65535; do not reuse vanilla IDs)
+# name        = item name shown in inventory and dialogs
+# base_item   = vanilla item ID to clone behavior/metadata from
+# type        = item type/action_type (e.g. 20 = clothing; usually match base_item)
+# rarity      = rarity number shown in item info
+# tradeable   = 1 allows dropping/trading; 0 marks it untradeable
+# texture_path= client texture path in items.dat (e.g. game/Leey_Katana.rttex)
+# info        = text shown in the /info item dialog; do not use the | character
+#
+# The server loads texture files from resources/custom_assets/ using the basename
+# of texture_path. Keep the texture_path in the same format as vanilla items.dat.
+#
+# RECIPE FORMAT (one recipe per line):
+# recipe|result_id|result_amount|ingredient_id:amount,ingredient_id:amount
+#
+# Example recipe: make 1 item 20000 using two of item 2:
+# recipe|20000|1|2:2
+#
+# Leey Katana: clones Legendary Katana (ID 2592).
+item|20000|Leey Katana|2592|20|10|1|game/Leey_Katana.rttex|A custom katana made for Gurotopia.
 recipe|20000|1|2:2

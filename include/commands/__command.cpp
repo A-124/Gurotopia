@@ -23,6 +23,7 @@
 #include "reload.hpp"
 #include "gameplay/content_commands.hpp"
 #include "gameplay/craft.hpp"
+#include "moderation.hpp"
 
 /* emote commands all dispatch to on::Action. listed once here so the
  * cmd_pool registration and the /help text stay in sync automatically. */
@@ -33,26 +34,77 @@ static constexpr std::string_view emotes[24]{
     "dab", "sassy", "dance2", "march", "grumpy", "shy"
 };
 
-/* named commands with their usage hint, shown in /help */
-/* named commands with their usage hint, shown in /help */
-static constexpr std::string_view named_help =
-    "/time /sb {msg} /find /warp {world} /punch {id} /skin {id} /who /me {msg} "
-    "/news /weather {id} /ghost /online /event /reload {target} /content /craft {item_id} [amount]";
-
-std::array<std::string_view, 8> cmd_requires_arg{
-    "sb", "warp", "punch", "skin", "me", "weather", "setrole", "resetallworld"
+/* Commands that require an argument are rejected before dispatch when omitted. */
+std::array<std::string_view, 13> cmd_requires_arg{
+    "sb", "warp", "punch", "skin", "me", "weather", "setrole", "resetallworld",
+    "setlevel", "kick", "ban", "unban", "pull"
 };
 
-/* if you plan to use this outside of this file, please include in __command.hpp (^-^) - and just make it a void. */
-auto help_return = [](ENetEvent& event, const std::string_view text) 
+/* Keep permission checks at dispatch time so hidden commands cannot be invoked directly. */
+static auto developer_only(std::function<void(ENetEvent&, const std::string_view)> command)
 {
-    std::string list{ named_help };
-    ::peer *pPeer = event.peer ? static_cast<::peer*>(event.peer->data) : nullptr;
-    if (pPeer && pPeer->role >= DEVELOPER) list += " /admin /maint [on|off] /resetworld /resetallworld confirm /ready /setrole {UID} {role}";
-    for (std::string_view emote : emotes)
-        list += std::format(" /{}", emote);
+    return [command = std::move(command)](ENetEvent& event, const std::string_view text)
+    {
+        auto *pPeer = event.peer ? static_cast<::peer*>(event.peer->data) : nullptr;
+        if (!pPeer || pPeer->role != DEVELOPER)
+        {
+            if (event.peer)
+                send_action(*event.peer, "log", "msg|Only developers can use this command.");
+            return;
+        }
+        command(event, text);
+    };
+}
 
-    send_action(*event.peer, "log", std::format("msg|>> Commands: {} \0", list));
+static void command_onehit(ENetEvent& event, const std::string_view)
+{
+    auto *pPeer = event.peer ? static_cast<::peer*>(event.peer->data) : nullptr;
+    if (!pPeer || pPeer->role != DEVELOPER)
+    {
+        if (event.peer)
+            send_action(*event.peer, "log", "msg|Only developers can use /1hit.");
+        return;
+    }
+
+    pPeer->one_hit = !pPeer->one_hit;
+    send_action(*event.peer, "log", std::format("msg|One-hit block breaking {}.",
+        pPeer->one_hit ? "enabled" : "disabled"));
+}
+
+/* /help and /? show a role-aware command guide in clearly separated sections. */
+auto help_return = [](ENetEvent& event, const std::string_view)
+{
+    if (!event.peer) return;
+    auto *pPeer = static_cast<::peer*>(event.peer->data);
+    if (!pPeer) return;
+
+    // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
+    std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
+        "/me <message> /news /event /skin <id> /craft <item_id> [amount]";
+
+    for (std::string_view emote : emotes)
+        player_commands += std::format(" /{}", emote);
+
+    send_action(*event.peer, "log", "msg|>> Player Cmd:");
+    send_action(*event.peer, "log", std::format("msg|{}", player_commands));
+
+    if (pPeer->role >= MODERATOR)
+    {
+        send_action(*event.peer, "log", "msg|>> Moderator Cmd:");
+        send_action(*event.peer, "log",
+            "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID>");
+    }
+
+    if (pPeer->role == DEVELOPER)
+    {
+        send_action(*event.peer, "log", "msg|>> Developer Cmd:");
+        send_action(*event.peer, "log",
+            "msg|/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
+            "/setrole <UID> <role> /setlevel <player|UID> <level> "
+            "/on /online /weather <id> /ghost /punch <id> /content /1hit "
+            "/reload <items|content|store|holiday|all> "
+            "/startmultiplier <gem> <xp> <seconds> /stopmultiplier");
+    }
 };
 
 std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::string_view)>> cmd_pool = []
@@ -68,25 +120,31 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"resetallworld", &resetallworld},
         {"ready", &ready},
         {"setrole", &setrole},
+        {"setlevel", developer_only(&command_setlevel)},
+        {"kick", &command_kick},
+        {"ban", &command_ban},
+        {"unban", &command_unban},
+        {"pull", &command_pull},
         {"time", &command::time}, // @note namespace is to prevent mismatching C time
         {"find", &find},
         {"warp", &warp},
-        {"punch", &punch},
+        {"punch", developer_only(&punch)},
         {"skin", &skin},
         {"sb", &sb},
         {"who", &who},
         {"me", &me},
         {"news", &news},
-        {"weather", &weather},
-        {"ghost", &ghost},
-        {"online", &stats_command},
-        {"on", &stats_command},
+        {"weather", developer_only(&weather)},
+        {"ghost", developer_only(&ghost)},
+        {"online", developer_only(&stats_command)},
+        {"on", developer_only(&stats_command)},
         {"startmultiplier", &event_start_command},
         {"stopmultiplier", &event_stop_command},
         {"event", &event_show_command},
         {"reload", &reload},
-        {"content", &content_status},
-        {"craft", &craft}
+        {"content", developer_only(&content_status)},
+        {"craft", &craft},
+        {"1hit", developer_only(&command_onehit)}
     };
 
     for (std::string_view emote : emotes)

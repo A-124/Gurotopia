@@ -1,8 +1,9 @@
 #include "pch.hpp"
+#include "database/custom_content.hpp"
 #include "tools/create_dialog.hpp"
 #include "info.hpp"
 
-std::vector<std::string> properties(u_char property) 
+std::vector<std::string> properties(u_char property)
 {
     std::vector<std::string> temp{};
 
@@ -41,16 +42,19 @@ void action::info(ENetEvent& event, const std::string& header)
 {
     const std::vector<std::string> pipes = readch(header, '|');
 
-    for (std::size_t i = 0; i < pipes.size(); ++i) 
+    for (std::size_t i = 0; i < pipes.size(); ++i)
     {
-        if (pipes[i] == "itemID")
+        if (pipes[i] == "itemID" && i + 1 < pipes.size())
         {
-            const u_short itemID = atoi(pipes[i+1].c_str());
-            if (itemID >= items.size()) return;
+            const int requested_id = std::atoi(pipes[i + 1].c_str());
+            if (requested_id < 0 ||
+                (requested_id >= static_cast<int>(items.size()) && !custom_content::is_custom_item(requested_id)))
+                return;
 
-            const ::item &item = id_to_item(itemID);
+            const ::item &item = id_to_item(static_cast<u_short>(requested_id));
+            if (item.id != requested_id) return;
 
-            ::create_dialog create_dialog = 
+            ::create_dialog create_dialog =
             ::create_dialog()
                 .set_default_color("`o")
                 .add_label_with_ele_icon("big", std::format("`wAbout {}``", item.raw_name), item.id, 0)
@@ -62,8 +66,8 @@ void action::info(ENetEvent& event, const std::string& header)
                 create_dialog
                     .add_textbox(std::format("Rarity: `w{}``", item.rarity))
                     .add_spacer("small");
-            
-            for (const std::string &prop : properties(item.property)) 
+
+            for (const std::string &prop : properties(item.property))
                 create_dialog.add_textbox(prop);
             for (const std::string &category : categories(item.cat))
                 create_dialog.add_textbox(category);

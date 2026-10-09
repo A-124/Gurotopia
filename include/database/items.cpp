@@ -357,6 +357,7 @@ bool rebuild_custom_items()
         ::item runtime = items[base_index];
         runtime.id = custom_id;
         runtime.raw_name = def.name;
+        runtime.info = def.info;
         runtime.type = static_cast<u_char>(std::clamp(def.type, 0, 255));
         runtime.rarity = static_cast<short>(std::clamp(def.rarity, -32768, 32767));
         if (def.tradeable) runtime.cat = static_cast<u_char>(runtime.cat & ~CAT_UNTRADEABLE);

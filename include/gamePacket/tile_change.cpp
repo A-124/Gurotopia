@@ -142,7 +142,8 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
             switch (item.type)
             {
                 case type::STRONG:
-                    throw std::runtime_error("It's too strong to break.");
+                    if (!pPeer->one_hit) throw std::runtime_error("It's too strong to break.");
+                    break;
                 case type::MAIN_DOOR: throw std::runtime_error("(stand over and punch to use)");
                 case type::LOCK:
                 {
@@ -359,6 +360,13 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     break;
                 }
             }
+            // /1hit primes the active layer so the normal damage pipeline breaks it on this punch.
+            if (pPeer->one_hit && item.hits > 0)
+            {
+                const std::size_t hit_layer = (block.fg != 0) ? 0u : 1u;
+                block.hits[hit_layer] = static_cast<u_char>(item.hits - 1);
+            }
+
             tile_apply_damage(event, std::move(gamePacket), block, apply_damage_value);
 
             if (block.hits[0] >= item.hits) block.fg = 0, block.hits[0] = 0, block.last_hit[0] = 0;

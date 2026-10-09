@@ -83,6 +83,16 @@ void create_table_if_not_exist()
         std::fprintf(stderr, "%s\n", mysql_error(db));
     }
 
+    const char *query_world_ban =
+        "CREATE TABLE IF NOT EXISTS world_ban ("
+            "world_name VARCHAR(24) NOT NULL,"
+            "uid INT NOT NULL,"
+            "PRIMARY KEY (world_name, uid),"
+            "INDEX idx_world_ban_uid (uid)"
+        ")";
+    if (mysql_query(db, query_world_ban))
+        std::fprintf(stderr, "[MariaDB] %s\n", mysql_error(db));
+
     ensure_column("peer", "role", "INT NOT NULL DEFAULT 0");
     ensure_column("peer", "gems", "INT NOT NULL DEFAULT 0");
     ensure_column("peer", "level", "INT UNSIGNED NOT NULL DEFAULT 1");

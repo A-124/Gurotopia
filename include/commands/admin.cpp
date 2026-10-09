@@ -3,6 +3,7 @@
 #include <charconv>
 #include <ctime>
 #include <limits>
+#include <unordered_map>
 
 #include "admin.hpp"
 #include "action/join_request.hpp"
@@ -19,8 +20,14 @@ namespace
 
     constexpr short wl_id = 242;
 
-    std::string access_search; // @note per-admin search filter, applied to player list
-    std::size_t admin_page{};  // @note player-list page
+    struct AdminUiState
+    {
+        std::string search;
+        std::size_t page{};
+    };
+
+    // Keep panel navigation separate for each developer using /admin.
+    std::unordered_map<int, AdminUiState> admin_ui;
 
     bool parse_positive_int(const std::string &text, int maximum, int &value)
     {
@@ -118,21 +125,23 @@ void show_admin_panel(ENetEvent& event, int selected_target_uid)
         return;
     }
 
+    AdminUiState &ui = admin_ui[pPeer->user_id];
     const std::vector<ENetPeer*> online = peers();
     create_dialog dialog;
     dialog.set_bg_color(13, 18, 28, 246)
         .set_border_color(56, 189, 248, 255)
         .set_default_color("`w")
-        .add_label("big", "`2Gurotopia`` `wAdmin Panel")
-        .add_smalltext("`oDeveloper tools``  `w·``  Tap a player below or enter their UID.")
-        .add_textbox(std::format("`2● ONLINE``  `w{} connected``", online.size()))
+        .add_label_with_icon("big", "`2Gurotopia`` `wAdmin Panel", 7190)
+        .add_smalltext("`oDEVELOPER CONTROL CENTER``  `w·``  Manage players and server tools.")
+        .add_textbox(std::format("`2● ONLINE``  `w{} connected``  `o|  Maintenance: {}``",
+            online.size(), gServer_data.maintenance ? "`4ON``" : "`2OFF``"))
         .add_spacer("small")
-        .add_textbox("`cTARGET PLAYER``")
+        .add_label_with_icon("medium", "`cTARGET PLAYER``", 1280)
         .add_text_input("target_uid", "Player UID", selected_target_uid > 0 ? std::to_string(selected_target_uid) : "", 10)
-        .add_text_input("player_search", "Search name...", access_search, 18)
+        .add_text_input("player_search", "Search name...", ui.search, 18)
         .add_button("search_player", "`wSearch / Filter``")
         .add_spacer("small")
-        .add_textbox("`cMODERATION``")
+        .add_label_with_icon("medium", "`cMODERATION``", 1016)
         .add_button("kick_player", "`4Kick Player``")
         .add_button("ban_player", "`4Ban Player``")
         .add_button("unban_player", "`2Unban Player``")
@@ -140,25 +149,25 @@ void show_admin_panel(ENetEvent& event, int selected_target_uid)
         .add_button("mute_player", "`4Mute Player``")
         .add_button("unmute_player", "`2Unmute Player``")
         .add_spacer("small")
-        .add_textbox("`cTELEPORT``")
+        .add_label_with_icon("medium", "`cTELEPORT``", 32)
         .add_button("pull_player", "`wPull to Me``")
         .add_button("goto_player", "`wGo to Player``")
         .add_spacer("small")
-        .add_textbox("`cGIVE ITEM``")
+        .add_label_with_icon("medium", "`cITEMS & CURRENCY``", 242)
         .add_text_input("item_id", "Item ID", "", 7)
         .add_text_input("item_count", "Amount (1-200)", "1", 3)
         .add_button("give_item", "`2Give Item to Player``")
         .add_button("give_wl", "`2Give World Locks``")
         .add_spacer("small")
-        .add_textbox("`cADD GEMS``")
+        .add_smalltext("`oGems``")
         .add_text_input("gem_amount", "Gem amount", "", 10)
         .add_button("add_gems", "`2Add Gems to Player``")
         .add_spacer("small")
-        .add_textbox("`cSET LEVEL``")
+        .add_label_with_icon("medium", "`cPROGRESSION``", 1486)
         .add_text_input("set_level", "Level 1-125", "", 3)
         .add_button("set_level_btn", "`2Set Player Level``")
         .add_spacer("small")
-        .add_textbox("`cSERVER``")
+        .add_label_with_icon("medium", "`cSERVER CONTROLS``", 3802)
         .add_button("toggle_maint", gServer_data.maintenance ? "`4Disable Maintenance``" : "`2Enable Maintenance``")
         .add_smalltext(gServer_data.maintenance ? "`4● Maintenance is ON (players blocked)``" : "`2● Maintenance is OFF``")
         .add_spacer("small");
@@ -167,13 +176,23 @@ void show_admin_panel(ENetEvent& event, int selected_target_uid)
     {
         const auto [selected_connection, selected_player] = find_online_player(selected_target_uid);
         if (selected_connection && selected_player)
-            dialog.add_smalltext(std::format("`2● Selected:`` `w{}``  `o(UID {})``", selected_player->growid, selected_target_uid));
+        {
+            const std::string role_name = selected_player->role == DEVELOPER ? "Developer" :
+                selected_player->role == MODERATOR ? "Moderator" : "Player";
+            const std::string world_name = selected_player->recent_worlds.back();
+            dialog.add_textbox(std::format("`2SELECTED:`` `w{}``  `o(UID {})``  `2● {}``",
+                selected_player->growid, selected_target_uid, role_name))
+                .add_smalltext(std::format("`oLevel:`` `w{}``  `oGems:`` `w{}``  `oBackpack:`` `w{}/{}``  `oWorld:`` `w{}``",
+                    selected_player->level[0], selected_player->gems,
+                    selected_player->slots.size(), std::max(0, selected_player->slot_size),
+                    world_name.empty() ? "Not in a world" : world_name));
+        }
         else
-            dialog.add_smalltext(std::format("`4● UID {}``  `o(player offline)``", selected_target_uid));
+            dialog.add_smalltext(std::format("`4● UID {}``  `o(player offline — only offline-supported actions work)``", selected_target_uid));
     }
 
     dialog.add_spacer("small")
-        .add_textbox("`cPLAYER LIST``")
+        .add_label_with_icon("medium", "`cONLINE PLAYERS``", 1280)
         .add_smalltext("`oTap a name to select that player.``")
         .add_button("refresh_admin", "`wRefresh Online List``")
         .add_button("page_prev", "`w< Prev``")
@@ -181,7 +200,7 @@ void show_admin_panel(ENetEvent& event, int selected_target_uid)
 
     std::size_t shown{};
     std::size_t skipped{};
-    std::string needle = access_search;
+    std::string needle = ui.search;
     for (char &c : needle) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     // @note collect matches first so paging is stable even with a search filter.
     std::vector<std::pair<int, std::string>> matches;
@@ -200,7 +219,7 @@ void show_admin_panel(ENetEvent& event, int selected_target_uid)
         }
         ++total;
         if (total > max_players) break; // @note hard cap: oversized dialogs crash the client
-        if (skipped < admin_page * page_size) { ++skipped; continue; }
+        if (skipped < ui.page * page_size) { ++skipped; continue; }
         if (matches.size() >= page_size) continue;
         std::string_view badge = "`o●``";
         switch (target->role)
@@ -232,15 +251,15 @@ void show_admin_panel(ENetEvent& event, int selected_target_uid)
         dialog.add_button(std::format("select_target_{}", uid), label);
 
     const std::size_t pages = (total + page_size - 1) / page_size;
-    if (admin_page >= pages && pages > 0)
+    if (ui.page >= pages && pages > 0)
     {
         // @note list shrank (player left) while admin sat on a later page.
-        admin_page = pages - 1;
+        ui.page = pages - 1;
         show_admin_panel(event, selected_target_uid);
         return;
     }
     if (shown == 0 && total == 0) dialog.add_label("small", "`oNo online player data is available.``");
-    if (pages > 1) dialog.add_smalltext(std::format("`oPage {} of {} ({} players)``", admin_page + 1, pages, total));
+    if (pages > 1) dialog.add_smalltext(std::format("`oPage {} of {} ({} players)``", ui.page + 1, pages, total));
     else if (total > shown) dialog.add_smalltext(std::format("Showing {} of {} connected players.", shown, total));
 
     dialog.add_quick_exit();
@@ -257,12 +276,13 @@ void admin_panel_return(ENetEvent& event, const ::hPipe &hPipe)
         return;
     }
 
+    AdminUiState &ui = admin_ui[pAdmin->user_id];
     const std::string action = hPipe["buttonClicked"];
     if (action == "refresh_admin")
     {
         int selected_uid{};
         const std::string uid_text = hPipe["target_uid"];
-        access_search = hPipe["player_search"];
+        ui.search = hPipe["player_search"];
         show_admin_panel(event, parse_positive_int(uid_text, std::numeric_limits<int>::max(), selected_uid) ? selected_uid : 0);
         return;
     }
@@ -270,7 +290,8 @@ void admin_panel_return(ENetEvent& event, const ::hPipe &hPipe)
     {
         int selected_uid{};
         const std::string uid_text = hPipe["target_uid"];
-        access_search = hPipe["player_search"];
+        ui.search = hPipe["player_search"];
+        ui.page = 0; // New filters should always start on the first page.
         show_admin_panel(event, parse_positive_int(uid_text, std::numeric_limits<int>::max(), selected_uid) ? selected_uid : 0);
         return;
     }
@@ -290,9 +311,9 @@ void admin_panel_return(ENetEvent& event, const ::hPipe &hPipe)
         int selected_uid{};
         const std::string uid_text = hPipe["target_uid"];
         if (parse_positive_int(uid_text, std::numeric_limits<int>::max(), selected_uid)) { /* keep */ }
-        access_search = hPipe["player_search"];
-        if (action == "page_prev") admin_page = (admin_page == 0) ? 0 : admin_page - 1;
-        else ++admin_page;
+        ui.search = hPipe["player_search"];
+        if (action == "page_prev") ui.page = (ui.page == 0) ? 0 : ui.page - 1;
+        else ui.page = std::min(ui.page + 1, (max_players - 1) / page_size);
         show_admin_panel(event, selected_uid);
         return;
     }

@@ -14,6 +14,7 @@ struct custom_item {
     int rarity{};
     bool tradeable{true};
     std::string texture{};
+    std::string info{};
 };
 struct recipe {
     int result{};
