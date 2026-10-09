@@ -61,6 +61,19 @@ void craft(ENetEvent& event, const std::string_view text) {
         return;
     }
 
+    const bool has_output_stack = std::any_of(player->slots.begin(), player->slots.end(),
+        [result_id](const slot& value) { return value.id == result_id && value.count > 0; });
+    if (inventory_count(*player, result_id) + total_output > 200) {
+        send_varlist(event.peer, {"OnConsoleMessage",
+            "Not enough room in the output stack. Remove some items before crafting."});
+        return;
+    }
+    if (!has_output_stack && player->slots.size() >=
+        static_cast<std::size_t>(std::max(player->slot_size, 0))) {
+        send_varlist(event.peer, {"OnConsoleMessage", "Your backpack is full."});
+        return;
+    }
+
     for (const auto& [ingredient_id, ingredient_amount] : recipe->ingredients)
         player->emplace(slot{static_cast<short>(ingredient_id),
             static_cast<short>(-ingredient_amount * amount)});
