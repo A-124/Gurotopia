@@ -184,6 +184,7 @@ u_char get_punch_id(u_int item_id)
 
         // Punch ID 43
         case 2592: return 43; // Legendary Katana
+        case 20000: return 43; // Leey Katana (custom clone of Legendary Katana)
         case 2596: return 43; // Nacho Block
         case 9396: return 43; // Balrog's Tail
 
