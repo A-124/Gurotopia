@@ -48,12 +48,12 @@ auto help_return = [](ENetEvent& event, const std::string_view)
     if (!pPeer) return;
 
     std::string list =
-        "/time /sb <message> /find /warp <world> /punch <id> /skin <id> /who /me <message> "
-        "/news /weather <id> /ghost /online /event /content /craft <item_id> [amount]";
+        "/help /? /time /sb <message> /find /warp <world> /punch <id> /skin <id> /who /me <message> "
+        "/news /weather <id> /ghost /online /on /event /content /craft <item_id> [amount]";
 
     if (pPeer->role == DEVELOPER)
     {
-        list += " /admin /maint [on|off] /resetworld /resetallworld confirm /ready "
+        list += " /admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
                 "/setrole <UID> <role> /setlevel <player|UID> <level> /kick <player|UID> "
                 "/ban <player|UID> /unban <player|UID> /pull <player|UID> "
                 "/reload <items|content|store|holiday|all> /startmultiplier <gem> <xp> <seconds> /stopmultiplier";
