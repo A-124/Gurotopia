@@ -40,35 +40,64 @@ std::array<std::string_view, 13> cmd_requires_arg{
     "setlevel", "kick", "ban", "unban", "pull"
 };
 
-/* /help is assembled from the caller's actual role and current world access. */
-auto help_return = [](ENetEvent& event, const std::string_view) 
+/* Keep permission checks at dispatch time so hidden commands cannot be invoked directly. */
+static auto developer_only(std::function<void(ENetEvent&, const std::string_view)> command)
+{
+    return [command = std::move(command)](ENetEvent& event, const std::string_view text)
+    {
+        auto *pPeer = event.peer ? static_cast<::peer*>(event.peer->data) : nullptr;
+        if (!pPeer || pPeer->role != DEVELOPER)
+        {
+            if (event.peer)
+                send_action(*event.peer, "log", "msg|Only developers can use this command.");
+            return;
+        }
+        command(event, text);
+    };
+}
+
+static void command_onehit(ENetEvent& event, const std::string_view)
+{
+    auto *pPeer = event.peer ? static_cast<::peer*>(event.peer->data) : nullptr;
+    if (!pPeer || pPeer->role != DEVELOPER)
+    {
+        if (event.peer)
+            send_action(*event.peer, "log", "msg|Only developers can use /1hit.");
+        return;
+    }
+
+    pPeer->one_hit = !pPeer->one_hit;
+    send_action(*event.peer, "log", std::format("msg|One-hit block breaking {}.",
+        pPeer->one_hit ? "enabled" : "disabled"));
+}
+
+/* /help and /? show a role-aware command guide in clearly separated sections. */
+auto help_return = [](ENetEvent& event, const std::string_view)
 {
     if (!event.peer) return;
-    ::peer *pPeer = static_cast<::peer*>(event.peer->data);
+    auto *pPeer = static_cast<::peer*>(event.peer->data);
     if (!pPeer) return;
 
-    std::string list =
-        "/help /? /time /sb <message> /find /warp <world> /punch <id> /skin <id> /who /me <message> "
-        "/news /weather <id> /ghost /online /on /event /content /craft <item_id> [amount]";
-
-    if (pPeer->role == DEVELOPER)
-    {
-        list += " /admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
-                "/setrole <UID> <role> /setlevel <player|UID> <level> /kick <player|UID> "
-                "/ban <player|UID> /unban <player|UID> /pull <player|UID> "
-                "/reload <items|content|store|holiday|all> /startmultiplier <gem> <xp> <seconds> /stopmultiplier";
-    }
-    else if (pPeer->netid != 0 && !pPeer->recent_worlds.back().empty())
-    {
-        auto world = std::ranges::find(worlds, pPeer->recent_worlds.back(), &::world::name);
-        if (world != worlds.end() && (world->owner == pPeer->user_id ||
-            std::ranges::find(world->access, pPeer->user_id) != world->access.end()))
-            list += " /kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID>";
-    }
+    std::string list = "Player Cmd\n"
+        "/help /? /time /sb <message> /find /warp <world> /who /me <message> /news "
+        "/event /craft <item_id> [amount]";
 
     for (std::string_view emote : emotes)
         list += std::format(" /{}", emote);
-    send_action(*event.peer, "log", std::format("msg|>> Commands: {} \0", list));
+
+    if (pPeer->role >= MODERATOR)
+        list += "\n\nModerator Cmd\n"
+                "/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID>";
+
+    if (pPeer->role == DEVELOPER)
+        list += "\n\nDeveloper Cmd\n"
+                "/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
+                "/setrole <UID> <role> /setlevel <player|UID> <level> "
+                "/on /online /weather <id> /ghost /punch <id> /content /1hit "
+                "/skin <id> /reload <items|content|store|holiday|all> "
+                "/startmultiplier <gem> <xp> <seconds> /stopmultiplier";
+
+    send_action(*event.peer, "log", std::format("msg|>> Commands:\n{}", list));
 };
 
 std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::string_view)>> cmd_pool = []
@@ -84,7 +113,7 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"resetallworld", &resetallworld},
         {"ready", &ready},
         {"setrole", &setrole},
-        {"setlevel", &command_setlevel},
+        {"setlevel", developer_only(&command_setlevel)},
         {"kick", &command_kick},
         {"ban", &command_ban},
         {"unban", &command_unban},
@@ -92,22 +121,23 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"time", &command::time}, // @note namespace is to prevent mismatching C time
         {"find", &find},
         {"warp", &warp},
-        {"punch", &punch},
+        {"punch", developer_only(&punch)},
         {"skin", &skin},
         {"sb", &sb},
         {"who", &who},
         {"me", &me},
         {"news", &news},
-        {"weather", &weather},
-        {"ghost", &ghost},
-        {"online", &stats_command},
-        {"on", &stats_command},
+        {"weather", developer_only(&weather)},
+        {"ghost", developer_only(&ghost)},
+        {"online", developer_only(&stats_command)},
+        {"on", developer_only(&stats_command)},
         {"startmultiplier", &event_start_command},
         {"stopmultiplier", &event_stop_command},
         {"event", &event_show_command},
         {"reload", &reload},
-        {"content", &content_status},
-        {"craft", &craft}
+        {"content", developer_only(&content_status)},
+        {"craft", &craft},
+        {"1hit", developer_only(&command_onehit)}
     };
 
     for (std::string_view emote : emotes)
