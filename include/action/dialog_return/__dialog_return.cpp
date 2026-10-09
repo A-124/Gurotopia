@@ -14,6 +14,7 @@
 #include "socialportal.hpp"
 #include "megaphone.hpp"
 #include "commands/admin.hpp"
+#include "gameplay/content_commands.hpp"
 
 #include "__dialog_return.hpp"
 
@@ -40,4 +41,9 @@ std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)
     {"socialportal", std::bind(&socialportal, std::placeholders::_1, std::placeholders::_2)},
     {"megaphone", std::bind(&megaphone, std::placeholders::_1, std::placeholders::_2)},
     {"admin_panel", std::bind(&admin_panel_return, std::placeholders::_1, std::placeholders::_2)},
+    {"gurotopia_hub", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"gurotopia_quests", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"gurotopia_achievements", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"gurotopia_craft", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"gurotopia_content", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
 };
