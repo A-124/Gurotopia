@@ -44,6 +44,14 @@ void craft(ENetEvent& event, const std::string_view text) {
         }
     }
 
+    const long long total_output = static_cast<long long>(recipe->amount) * amount;
+    if (total_output > 200) {
+        send_varlist(event.peer, {"OnConsoleMessage",
+            std::format("That craft exceeds the 200-item stack limit. Craft at most {} at a time.",
+                200 / recipe->amount)});
+        return;
+    }
+
     // Client-visible output must be a real items.dat item until the custom
     // item protocol is implemented. Server-only custom IDs are rejected.
     if (result_id < 0 || !item_registry::exists(static_cast<u_short>(result_id))) {
@@ -58,7 +66,7 @@ void craft(ENetEvent& event, const std::string_view text) {
 
     const int output = recipe->amount * amount;
     player->emplace(slot{static_cast<short>(result_id),
-        static_cast<short>(std::min(output, 200))});
+        static_cast<short>(output)});
     send_inventory_state(event);
     send_varlist(event.peer, {"OnConsoleMessage",
         std::format("Crafted {} x{}.", result_id, output)});
