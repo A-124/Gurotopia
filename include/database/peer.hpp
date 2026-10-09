@@ -106,6 +106,8 @@ public:
     u_int skin_color{ 2527912447 };
     u_int hair_color = bgra::GREEN | bgra::GREEN | bgra::RED | bgra::ALPHA; // @note value declines for specfic hair colors
 
+    bool one_hit{}; // Developer-only /1hit mode: break breakable blocks in one punch.
+
     int state{}; // @note using pstate::
 
     ::Billboard billboard{};
