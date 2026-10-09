@@ -62,7 +62,7 @@ void craft_dialog(ENetEvent& event, int item_id = 0, int amount = 1) {
     for (int id : ids) {
         const auto *recipe = custom_content::find_recipe(id);
         const auto *item = custom_content::find_item(id);
-        d += std::format("add_label_with_icon|small|{} (ID {})|left|{}|\n", item ? item->name : std::format("Item {}", id), id, item ? item->base_item : 2);
+        d += std::format("add_label_with_icon|small|{} (ID {})|left|{}|\n", item ? item->name : std::format("Item {}", id), id, id);
         std::string ingredients = "Ingredients: ";
         for (std::size_t i = 0; i < recipe->ingredients.size(); ++i) {
             if (i) ingredients += ", ";
