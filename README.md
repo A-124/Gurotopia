@@ -142,3 +142,45 @@
 # ![](https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/dark/law.svg) License
 
 Licensed under the **Apache-2.0 License** — see [LICENSE](LICENSE) for details.
+
+
+## Custom content
+
+Custom item and recipe definitions are loaded from `resources/custom_items.txt`.
+The server validates the complete file before replacing the active custom-content
+registry. If validation fails, the previous registry remains active.
+
+### Custom item format
+
+```text
+item|id|name|base_item|type|rarity|tradeable|texture_path|info
+```
+
+- `id`: custom item ID (1000–65535), outside the vanilla item database.
+- `name`: display name.
+- `base_item`: an existing vanilla item whose item data is cloned.
+- `type`: item type value (0–255).
+- `rarity`: rarity value (0–32767).
+- `tradeable`: `1` to allow trading, `0` to mark the item untradeable.
+- `texture_path`: optional client texture path; the server looks for its basename in `resources/custom_assets/`.
+- `info`: optional item information. The `|` character is the field separator.
+
+### Recipe format
+
+```text
+recipe|result_id|result_amount|ingredient_id:amount,ingredient_id:amount
+```
+
+Recipe IDs must refer to known vanilla or custom items. Amounts must be positive;
+the output amount is limited to 200. Duplicate item IDs, duplicate recipe outputs,
+unknown definition types, invalid fields, and missing texture files are validation
+errors.
+
+### Runtime commands
+
+- `/content` — show currently loaded content counts.
+- `/content validate` — validate custom items and recipes and print actionable errors.
+- `/reload content` — reload custom content, quests, and achievements after validation.
+- `/reload all` — reload the supported runtime data sets.
+
+Run `/content validate` before reloading after editing the file.
