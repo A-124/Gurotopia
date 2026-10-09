@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include <charconv>
+#include <limits>
 #include "moderation.hpp"
 #include "action/join_request.hpp"
 #include "action/quit_to_exit.hpp"
