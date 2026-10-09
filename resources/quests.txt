@@ -1,0 +1,2 @@
+# id|name|trigger|target|required
+# 1|First Steps|player_entered_world|0|1

@@ -12,6 +12,10 @@
 #include "include/automate/holiday.hpp" // @note holiday
 #include <csignal>
 #include "include/commands/event_manager.hpp" // @note event_manager_tick()
+#include "include/core/event_bus.hpp"
+#include "include/core/runtime_reload.hpp"
+#include "include/gameplay/quest_system.hpp"
+#include "include/gameplay/achievement_system.hpp"
 
 namespace
 {
@@ -49,12 +53,20 @@ int main()
     mysql_connect();
     decode_items();      // @note reads items.dat into legible class members (id, item name, ect)
     parse_store();       // @todo thread loop this so the store can update without restarting server (stored in .\resource\store.txt)
-    check_for_holiday(); // @note check for any holidays using local time (your VPS or local time) - @todo thread loop so it can change the holiday without restarting
+    check_for_holiday(); // @note check for any holidays using local time (your VPS or local time)
+    runtime_reload::reload("content");
+    event_bus::subscribe(event_bus::type::item_changed, quest_system::on_event);
+    event_bus::subscribe(event_bus::type::block_changed, quest_system::on_event);
+    event_bus::subscribe(event_bus::type::player_entered_world, quest_system::on_event);
+    event_bus::subscribe(event_bus::type::item_changed, achievement_system::on_event);
+    event_bus::subscribe(event_bus::type::block_changed, achievement_system::on_event);
+    event_bus::subscribe(event_bus::type::player_entered_world, achievement_system::on_event);
 
     ENetEvent event{};
     while (!gSignal)
     {
         event_manager_tick(); // @note check if gem/xp multiplier event has expired
+        event_bus::emit({ event_bus::type::tick });
 
         while (enet_host_service(host, &event, 1000/*ms*/) > 0)
             if (const auto i = eventType_pool.find(event.type); i != eventType_pool.end())
