@@ -104,6 +104,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
             "/on /online /weather <id> /ghost /punch <id> /content /1hit "
             "/reload <items|content|store|holiday|all> "
             "/startmultiplier <gem> <xp> <seconds> /stopmultiplier");
+    }
 };
 
 std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::string_view)>> cmd_pool = []
