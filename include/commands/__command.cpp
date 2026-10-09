@@ -80,7 +80,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
 
     // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
     std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
-        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /quests /achievements /daily";
+        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily";
 
     for (std::string_view emote : emotes)
         player_commands += std::format(" /{}", emote);
@@ -101,7 +101,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
         send_action(*event.peer, "log",
             "msg|/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
             "/setrole <UID> <role> /setlevel <player|UID> <level> "
-            "/on /online /weather <id> /ghost /punch <id> /content [/validate] /1hit "
+            "/on /online /weather <id> /ghost /punch <id> /content [/validate] /contentui /1hit "
             "/reload <items|content|store|holiday|all> "
             "/startmultiplier <gem> <xp> <seconds> /stopmultiplier");
     }
@@ -143,6 +143,9 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"event", &event_show_command},
         {"reload", &reload},
         {"content", developer_only(&content_status)},
+        {"features", &features_command},
+        {"craftui", &craft_dialog_command},
+        {"contentui", developer_only(&content_dialog_command)},
         {"craft", &craft},
         {"quests", &quests_command},
         {"quest", &quests_command},
