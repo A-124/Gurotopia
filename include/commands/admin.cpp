@@ -180,16 +180,12 @@ void show_admin_panel(ENetEvent& event, int selected_target_uid)
             const std::string role_name = selected_player->role == DEVELOPER ? "Developer" :
                 selected_player->role == MODERATOR ? "Moderator" : "Player";
             const std::string world_name = selected_player->recent_worlds.back();
-            dialog.add_spacer("small")
-                .add_label_with_icon("medium", "`2SELECTED PLAYER``", 1280)
-                .add_textbox(std::format("`w{}``  `o(UID {})``  `2● {}``",
-                    selected_player->growid, selected_target_uid, role_name))
-                .add_smalltext(std::format("`oLevel:`` `w{}``   `oGems:`` `w{}``   `oBackpack:`` `w{}/{}``",
+            dialog.add_textbox(std::format("`2SELECTED:`` `w{}``  `o(UID {})``  `2● {}``",
+                selected_player->growid, selected_target_uid, role_name))
+                .add_smalltext(std::format("`oLevel:`` `w{}``  `oGems:`` `w{}``  `oBackpack:`` `w{}/{}``  `oWorld:`` `w{}``",
                     selected_player->level[0], selected_player->gems,
-                    selected_player->slots.size(), std::max(0, selected_player->slot_size)))
-                .add_smalltext(world_name.empty()
-                    ? "`oCurrent world:`` `4Not in a world``"
-                    : std::format("`oCurrent world:`` `w{}``", world_name));
+                    selected_player->slots.size(), std::max(0, selected_player->slot_size),
+                    world_name.empty() ? "Not in a world" : world_name));
         }
         else
             dialog.add_smalltext(std::format("`4● UID {}``  `o(player offline — only offline-supported actions work)``", selected_target_uid));
