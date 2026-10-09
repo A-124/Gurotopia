@@ -8,8 +8,28 @@
 #include "gameplay/quest_system.hpp"
 #include "gameplay/achievement_system.hpp"
 
-void content_status(ENetEvent& event,const std::string_view){
- send_varlist(event.peer,{"OnConsoleMessage",std::format("[CONTENT] custom_items={} recipes={} quests={} achievements={}",custom_content::items().size(),custom_content::recipe_count(),quest_system::all().size(),achievement_system::all().size())});
+void content_status(ENetEvent& event, const std::string_view text) {
+    if (!event.peer) return;
+    if (text.find("validate") != std::string_view::npos) {
+        const auto errors = custom_content::validate();
+        if (errors.empty()) {
+            send_varlist(event.peer, {"OnConsoleMessage", "[CONTENT] Validation passed. No custom item or recipe errors found."});
+            return;
+        }
+        send_varlist(event.peer, {"OnConsoleMessage",
+            std::format("[CONTENT] Validation failed with {} error(s).", errors.size())});
+        constexpr std::size_t max_errors_to_display = 8;
+        for (std::size_t i = 0; i < std::min(errors.size(), max_errors_to_display); ++i)
+            send_varlist(event.peer, {"OnConsoleMessage", std::format("[CONTENT] {}", errors[i])});
+        if (errors.size() > max_errors_to_display)
+            send_varlist(event.peer, {"OnConsoleMessage",
+                std::format("[CONTENT] {} additional error(s) omitted.", errors.size() - max_errors_to_display)});
+        return;
+    }
+    send_varlist(event.peer, {"OnConsoleMessage",
+        std::format("[CONTENT] custom_items={} recipes={} quests={} achievements={} | use /content validate to check custom_items.txt",
+            custom_content::items().size(), custom_content::recipe_count(),
+            quest_system::all().size(), achievement_system::all().size())});
 }
 
 namespace
