@@ -154,8 +154,8 @@ void daily_command(ENetEvent& event, const std::string_view)
 
     const int day = (pPeer->daily_streak - 1) % 7 + 1; // @note 1..7, then the cycle starts again
     goals::reward prize{};
-    prize.gems = 100 * day;
-    prize.xp = 25 * day;
+    prize.gems = 1000 * day;
+    prize.xp = 250 * day;
     if (day == 7) prize.items.emplace_back(3402/*Golden Booty Chest*/, 1);
 
     const std::string given = goals::grant(event.peer, prize);

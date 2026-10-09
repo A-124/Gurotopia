@@ -90,14 +90,14 @@ auto help_return = [](ENetEvent& event, const std::string_view)
 
     if (pPeer->role >= MODERATOR)
     {
-        send_action(*event.peer, "log", "msg|>> Moderator Cmd:");
+        send_action(*event.peer, "log", "msg|>> `cModerator Cmd:");
         send_action(*event.peer, "log",
             "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID>");
     }
 
     if (pPeer->role == DEVELOPER)
     {
-        send_action(*event.peer, "log", "msg|>> Developer Cmd:");
+        send_action(*event.peer, "log", "msg|>> `bDeveloper Cmd:");
         send_action(*event.peer, "log",
             "msg|/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
             "/setrole <UID> <role> /setlevel <player|UID> <level> "
