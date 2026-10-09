@@ -78,26 +78,32 @@ auto help_return = [](ENetEvent& event, const std::string_view)
     auto *pPeer = static_cast<::peer*>(event.peer->data);
     if (!pPeer) return;
 
-    std::string list = "Player Cmd\n"
-        "/help /? /time /sb <message> /find /warp <world> /who /me <message> /news "
-        "/event /skin <id> /craft <item_id> [amount]";
+    // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
+    std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
+        "/me <message> /news /event /skin <id> /craft <item_id> [amount]";
 
     for (std::string_view emote : emotes)
-        list += std::format(" /{}", emote);
+        player_commands += std::format(" /{}", emote);
+
+    send_action(*event.peer, "log", "msg|>> Player Cmd:");
+    send_action(*event.peer, "log", std::format("msg|{}", player_commands));
 
     if (pPeer->role >= MODERATOR)
-        list += "\n\nModerator Cmd\n"
-                "/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID>";
+    {
+        send_action(*event.peer, "log", "msg|>> Moderator Cmd:");
+        send_action(*event.peer, "log",
+            "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID>");
+    }
 
     if (pPeer->role == DEVELOPER)
-        list += "\n\nDeveloper Cmd\n"
-                "/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
-                "/setrole <UID> <role> /setlevel <player|UID> <level> "
-                "/on /online /weather <id> /ghost /punch <id> /content /1hit "
-                "/reload <items|content|store|holiday|all> "
-                "/startmultiplier <gem> <xp> <seconds> /stopmultiplier";
-
-    send_action(*event.peer, "log", std::format("msg|>> Commands:\n{}", list));
+    {
+        send_action(*event.peer, "log", "msg|>> Developer Cmd:");
+        send_action(*event.peer, "log",
+            "msg|/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
+            "/setrole <UID> <role> /setlevel <player|UID> <level> "
+            "/on /online /weather <id> /ghost /punch <id> /content /1hit "
+            "/reload <items|content|store|holiday|all> "
+            "/startmultiplier <gem> <xp> <seconds> /stopmultiplier");
 };
 
 std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::string_view)>> cmd_pool = []
