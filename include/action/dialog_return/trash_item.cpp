@@ -1,4 +1,5 @@
 #include "pch.hpp"
+#include "database/custom_content.hpp"
 #include "onVariant/ConsoleMessage.hpp"
 
 #include "trash_item.hpp"
@@ -11,10 +12,13 @@ void trash_item(ENetEvent& event, const ::hPipe &hPipe)
 
     const int requested_id = std::atoi(hPipe["itemID"].c_str());
     const int requested_count = std::atoi(hPipe["count"].c_str());
-    if (requested_id <= 0 || requested_id >= static_cast<int>(items.size()) || requested_count <= 0 || requested_count > 200) return;
+    const bool valid_id = requested_id > 0 &&
+        (requested_id < static_cast<int>(items.size()) || custom_content::is_custom_item(requested_id));
+    if (!valid_id || requested_count <= 0 || requested_count > 200) return;
     const short itemID = static_cast<short>(requested_id);
 
-    const ::item &item = id_to_item(itemID);
+    const ::item &item = id_to_item(static_cast<u_short>(requested_id));
+    if (item.id != requested_id) return;
     if ((item.cat & CAT_UNTRADEABLE) && hPipe["buttonClicked"] != "recycle_untradeable")
     {
         send_varlist(event.peer, {"OnTextOverlay", "Confirm recycling this untradeable item first."});
