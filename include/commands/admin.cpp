@@ -295,6 +295,7 @@ void admin_panel_return(ENetEvent& event, const ::hPipe &hPipe)
         int selected_uid{};
         const std::string uid_text = hPipe["target_uid"];
         ui.search = hPipe["player_search"];
+        ui.page = 0; // New filters should always start on the first page.
         show_admin_panel(event, parse_positive_int(uid_text, std::numeric_limits<int>::max(), selected_uid) ? selected_uid : 0);
         return;
     }
