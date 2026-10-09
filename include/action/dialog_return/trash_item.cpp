@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include "database/custom_content.hpp"
 #include "onVariant/ConsoleMessage.hpp"
+#include "onVariant/SetClothing.hpp"
 
 #include "trash_item.hpp"
 
@@ -27,7 +28,20 @@ void trash_item(ENetEvent& event, const ::hPipe &hPipe)
     const auto held = std::ranges::find(pPeer->slots, itemID, &::slot::id);
     if (held == pPeer->slots.end() || requested_count > held->count) return;
     const short count = static_cast<short>(requested_count);
+    const auto clothing_before = pPeer->clothing;
 
     modify_item_inventory(event, ::slot(itemID, -count));
+
+    // Removing the last copy of equipped clothing clears the server-side slot.
+    // Notify clients in the same world so the old appearance is removed too.
+    if (pPeer->clothing != clothing_before)
+    {
+        peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD,
+            [pPeer](ENetPeer &recipient)
+            {
+                on::SetClothing(recipient, *pPeer);
+            });
+    }
+
     on::ConsoleMessage(event.peer, std::format("{} `w{}`` recycled, `w0`` gems earned.", count, item.raw_name));
 }
