@@ -91,7 +91,7 @@ void create_table_if_not_exist()
             "INDEX idx_world_ban_uid (uid)"
         ")";
     if (mysql_query(db, query_world_ban))
-        std::fprintf(stderr, "[MariaDB] %s\\n", mysql_error(db));
+        std::fprintf(stderr, "[MariaDB] %s\n", mysql_error(db));
 
     ensure_column("peer", "role", "INT NOT NULL DEFAULT 0");
     ensure_column("peer", "gems", "INT NOT NULL DEFAULT 0");
