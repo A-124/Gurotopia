@@ -1,14 +1,16 @@
 # Server-side custom content
-# item|id|name|base_item|type|rarity|tradeable
+# item|id|name|base_item|type|rarity|tradeable|texture_path
 # recipe|result_id|amount|ingredient_id:amount,ingredient_id:amount
 
 # Example (use a real vanilla result id to test crafting):
 # recipe|2|1|18:2
 
 # Phase 5 example (uncomment to test client-visible custom items):
-# item|20000|Guro Crystal|2|4|10|1
+# item|20000|Guro Crystal|2|4|10|1|game/Guro_Crystal.rttex
 # recipe|20000|1|18:2
 
-# Leey Katana: clone Legendary Katana (2592), use the supplied custom RTTEX name.
-item|20000|Leey Katana|2592|20|10|1|Leey_Katana.rttex
+# Leey Katana clones Legendary Katana (2592). Keep the client texture path
+# in the same game/ namespace used by vanilla items.dat texture paths.
+# The server resolves the basename inside resources/custom_assets/.
+item|20000|Leey Katana|2592|20|10|1|game/Leey_Katana.rttex
 recipe|20000|1|2:2
