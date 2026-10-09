@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include <algorithm>
+#include <limits>
 #include <sstream>
 #include "database/peer.hpp"
 #include "database/custom_content.hpp"
@@ -37,9 +38,9 @@ void craft(ENetEvent& event, const std::string_view text) {
     const auto* recipe = custom_content::find_recipe(result_id);
     for (const auto& [ingredient_id, ingredient_amount] : recipe->ingredients) {
         const long long required = static_cast<long long>(ingredient_amount) * amount;
-        if (required > 2000000000LL || inventory_count(*player, ingredient_id) < required) {
+        if (required > std::numeric_limits<short>::max() || inventory_count(*player, ingredient_id) < required) {
             send_varlist(event.peer, {"OnConsoleMessage",
-                std::format("Not enough ingredient {}.", ingredient_id)});
+                std::format("Not enough ingredient {} or requested amount exceeds the safe limit.", ingredient_id)});
             return;
         }
     }
