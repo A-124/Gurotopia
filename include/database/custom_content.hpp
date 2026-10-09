@@ -1,10 +1,10 @@
 #pragma once
+#include <cstddef>
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <vector>
-#include <cstddef>
 #include <utility>
+#include <vector>
 namespace custom_content {
 struct custom_item {
     int id{};
@@ -16,11 +16,10 @@ struct custom_item {
     std::string texture{};
     std::string info{};
 };
-struct recipe {
-    int result{};
-    int amount{1};
-    std::vector<std::pair<int,int>> ingredients;
-};
+struct recipe { int result{}; int amount{1}; std::vector<std::pair<int, int>> ingredients; };
+// Validate without mutating the active registry. Empty means valid.
+std::vector<std::string> validate();
+// Replace active content only if every definition and reference is valid.
 bool reload();
 const custom_item* find_item(int id) noexcept;
 bool is_custom_item(int id) noexcept;
