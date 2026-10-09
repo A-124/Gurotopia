@@ -80,7 +80,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
 
     // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
     std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
-        "/me <message> /news /event /skin <id> /craft <item_id> [amount]";
+        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /quests /achievements /daily";
 
     for (std::string_view emote : emotes)
         player_commands += std::format(" /{}", emote);
@@ -144,6 +144,10 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"reload", &reload},
         {"content", developer_only(&content_status)},
         {"craft", &craft},
+        {"quests", &quests_command},
+        {"quest", &quests_command},
+        {"achievements", &achievements_command},
+        {"daily", &daily_command},
         {"1hit", developer_only(&command_onehit)}
     };
 

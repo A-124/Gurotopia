@@ -14,6 +14,7 @@
 #include "action/dialog_return/vending.hpp"
 #include "automate/holiday.hpp"
 #include "commands/event_manager.hpp"
+#include "core/event_bus.hpp"
 
 #include "tile_change.hpp"
 
@@ -296,13 +297,29 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                         on::ConsoleMessage(event.peer, "`4This weather machine needs configuration that the server does not support yet.``");
                         return;
                     }
-                    ::block &weather_machine = world->blocks[cord(world->weather.x, world->weather.y)];
-
-                    if (!(block.state[2] & S_TOGGLE) && !(weather_machine.state[2] & S_TOGGLE)) weather_machine.state[2] &= ~S_TOGGLE; // @note so we can avoid the upcoming ^= if the weather machine is already toggled
+                    // @note only one weather machine can be on at a time: switch the previous one off.
+                    if (world->weather != gamePacket.punch)
+                    {
+                        const int old_x = world->weather.x_int(), old_y = world->weather.y_int();
+                        if (old_x >= 0 && old_x < 100 && old_y >= 0 && old_y < 60)
+                        {
+                            ::block &previous = world->blocks[cord(old_x, old_y)];
+                            if (previous.fg != 0 && is_weather_machine(id_to_item(previous.fg)) && (previous.state[2] & S_TOGGLE))
+                            {
+                                previous.state[2] &= ~S_TOGGLE;
+                                ::gamePacket previous_packet = gamePacket;
+                                previous_packet.punch = world->weather;
+                                send_tile_update(event, std::move(previous_packet), previous, *world); // @note also saves the blocks
+                            }
+                        }
+                    }
                     block.state[2] ^= S_TOGGLE; // @note if punched twice it can detoggle that is why we use ^= not |=
-                    
-                    world->weather = gamePacket.punch;
-                    
+
+                    if (block.state[2] & S_TOGGLE) world->weather = gamePacket.punch;
+                    else if (world->weather == gamePacket.punch) world->weather = ::pos{};
+
+                    world->save_blocks(); // @note the toggle lives in the block state, save it now or the weather is lost on restart
+
                     peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [block, item](ENetPeer& p)
                     {
                         send_varlist(&p, { "OnSetCurrentWeather", (block.state[2] & S_TOGGLE) ? get_weather_id(item.id) : 0 });
@@ -396,10 +413,20 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
             }
 
             world->save_blocks();
+            event_bus::emit({ event_bus::type::block_changed, event.peer, {}, item.id, 1 }); // @note quests & achievements
 
             /* @todo update these changes with tile_update() */
             block.state[2] = 0x00; // @note reset tile direction
             block.state[3] &= ~S_VANISH; // @note remove paint
+
+            if (is_weather_machine(item) && world->weather == gamePacket.punch)
+            {
+                world->weather = ::pos{}; // @note machine is gone, so is the weather
+                peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [](ENetPeer& p)
+                {
+                    send_varlist(&p, { "OnSetCurrentWeather", 0 });
+                });
+            }
 
             if (displayed_item_id != 0)
             {
@@ -576,8 +603,8 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     std::string message = "`7[```4MWAHAHAHA!! FIRE FIRE FIRE```7]``";
                     peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer& p) 
                     {
-                        send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, message, 0u });
-                        on::ConsoleMessage(event.peer, message);
+                        send_varlist(&p, { "OnTalkBubble", pPeer->netid, message, 0u });
+                        on::ConsoleMessage(&p, message);
                     });
                     particle = 0x96;
 
@@ -686,6 +713,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 {
                     block.state[3] &= ~S_VANISH;
                     color = bgra::BLUE | bgra::GREEN | bgra::RED, particle = 0xa8; // @todo get exact color. I just guessed T-T
+                    break;
                 }
                 case 3822: break; // Red Hair Dye
                 case 3824: break; // Green Hair Dye
@@ -1012,6 +1040,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 block.last_hit[0] = 0;
             }
             pPeer->emplace(::slot(item.id, -1));
+            event_bus::emit({ event_bus::type::block_placed, event.peer, {}, item.id, 1 }); // @note quests & achievements
         }
         gamePacket.netid = pPeer->netid; // @todo sometimes rgt has this as 0
         state_visuals(*event.peer, std::move(gamePacket)); // finished.

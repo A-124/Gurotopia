@@ -3,6 +3,7 @@
 #include "onVariant/ConsoleMessage.hpp"
 
 #include <limits>
+#include "core/event_bus.hpp"
 
 #include "item_activate_object.hpp"
 
@@ -65,7 +66,11 @@ void item_activate_object(ENetEvent& event, ::gamePacket gamePacket)
         pPeer->gems += take;
         object->count -= take;
         on::SetBux(event);
-        if (take > 0) on::ConsoleMessage(event.peer, std::format("Collected `w{}`` gems.", take));
+        if (take > 0)
+        {
+            on::ConsoleMessage(event.peer, std::format("Collected `w{}`` gems.", take));
+            event_bus::emit({ event_bus::type::item_changed, event.peer, {}, 112, take }); // @note quests & achievements. (gems cannot be dropped, so this can't be farmed)
+        }
         if (object->count > 0)
         {
             on::ConsoleMessage(event.peer, "`4Your gem balance is full — leftover gems stay on the ground.``");

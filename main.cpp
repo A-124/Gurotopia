@@ -57,9 +57,11 @@ int main()
     runtime_reload::reload("content");
     event_bus::subscribe(event_bus::type::item_changed, quest_system::on_event);
     event_bus::subscribe(event_bus::type::block_changed, quest_system::on_event);
+    event_bus::subscribe(event_bus::type::block_placed, quest_system::on_event);
     event_bus::subscribe(event_bus::type::player_entered_world, quest_system::on_event);
     event_bus::subscribe(event_bus::type::item_changed, achievement_system::on_event);
     event_bus::subscribe(event_bus::type::block_changed, achievement_system::on_event);
+    event_bus::subscribe(event_bus::type::block_placed, achievement_system::on_event);
     event_bus::subscribe(event_bus::type::player_entered_world, achievement_system::on_event);
 
     ENetEvent event{};
@@ -74,6 +76,7 @@ int main()
     }
 
     safe_disconnect_peers(gSignal);
+    worlds.clear(); // @note ~world() saves every loaded world; it must happen before the database closes (otherwise players' builds, drops and weather are lost on shutdown)
     mysql_close(db); // @note deletes db (MYSQL* allocation)
     mysql_library_end();
 

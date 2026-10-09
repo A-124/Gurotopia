@@ -2,10 +2,14 @@
 #include <string>
 #include <unordered_map>
 #include "core/event_bus.hpp"
+#include "gameplay/goals.hpp"
+
+/* @brief long-term milestones defined in resources/achievements.txt (same line format as quests, see goals.hpp) */
 namespace achievement_system {
-struct achievement { int id{}; std::string name{}; event_bus::type trigger{}; int target{}; };
+using achievement = goals::goal;
+
 bool reload();
 const achievement* find(int id) noexcept;
 void on_event(const event_bus::event& event);
-const std::unordered_map<int,achievement>& all() noexcept;
+const std::unordered_map<int, achievement>& all() noexcept;
 }

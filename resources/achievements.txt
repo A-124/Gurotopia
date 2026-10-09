@@ -1,2 +1,11 @@
-# id|name|trigger|target
-# 1|Welcome to Gurotopia|player_entered_world|1
+# Achievements: long-term milestones, shown with /achievements. Same format as quests.txt.
+# id|name|trigger|target|required|reward|description
+1|Welcome to Gurotopia|player_entered_world|0|1|gems:25|Join the server.
+2|Frequent Visitor|player_entered_world|0|100|gems:500,xp:250|Enter 100 worlds.
+3|Home Sweet Home|block_placed|242|1|gems:100|Own a world.
+4|Pickaxe Hero|block_changed|0|5000|gems:2500,xp:1000|Break 5000 blocks.
+5|Block Architect|block_placed|0|5000|gems:2500,xp:1000|Place 5000 blocks.
+6|Rock Solid|block_changed|10|500|gems:750,xp:300|Break 500 Rock blocks.
+7|Deep Pockets|item_changed|112|50000|gems:5000,xp:2500|Pick up 50000 gems.
+8|Weather Master|block_placed|932|10|gems:500,xp:200|Place 10 Weather Machines - Sunny.
+9|Block Legend|block_changed|0|50000|gems:10000,xp:5000,item:3402:3|Break 50000 blocks.

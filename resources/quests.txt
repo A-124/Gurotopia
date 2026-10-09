@@ -1,2 +1,24 @@
-# id|name|trigger|target|required
-# 1|First Steps|player_entered_world|0|1
+# Quests. One per line, each can be completed once per account. Reload with /reload content (no restart needed).
+# id|name|trigger|target|required|reward|description
+#
+# trigger : item_changed | block_changed | block_placed | player_entered_world
+#   item_changed        you gain an item (crafting, gem pickups, rewards, purchases)
+#   block_changed       you break a block (target = block id)
+#   block_placed        you place a block (target = block id)
+#   player_entered_world you enter a world
+# target  : item/block id the event must involve. 0 = anything
+# reward  : comma list of gems:N, xp:N, item:ID:COUNT
+#
+# Block ids used below: 2 Dirt, 10 Rock, 4 Lava, 202 Small Lock, 242 World Lock, 932 Sunny Weather Machine
+1|First Steps|player_entered_world|0|1|gems:50,xp:25|Enter your first world.
+2|World Traveler|player_entered_world|0|10|gems:200,xp:100|Visit 10 worlds.
+3|Dirt Digger|block_changed|2|50|gems:100,xp:50|Break 50 Dirt blocks.
+4|Rock Breaker|block_changed|10|25|gems:150,xp:75|Break 25 Rock blocks.
+5|Builder|block_placed|0|100|gems:200,xp:100|Place 100 blocks.
+6|Locksmith|block_placed|202|1|gems:100,xp:50|Place a Small Lock.
+7|Landlord|block_placed|242|1|gems:250,xp:100|Place a World Lock and claim a world.
+8|Weather Watcher|block_placed|932|1|gems:100,xp:50|Place a Weather Machine - Sunny.
+9|Gem Hunter|item_changed|112|500|gems:300,xp:150|Pick up 500 gems.
+10|Miner|block_changed|0|500|gems:500,xp:300|Break 500 blocks.
+11|Master Builder|block_placed|0|1000|gems:1000,xp:500,item:3402:1|Place 1000 blocks.
+12|Gem Tycoon|item_changed|112|5000|gems:2000,xp:1000|Pick up 5000 gems.

@@ -82,8 +82,8 @@ T peer::mysql_select(const std::string &column, const std::string &arg)
 
     hStmt.execute();
     hStmt.fetch();
-    if constexpr (std::is_same_v<T, std::string>)
-        value.resize(length);
+    if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, std::vector<u_char>>)
+        value.resize(length); // @note vectors used to keep the whole oversized bind buffer
 
     return value;
 }
@@ -110,15 +110,61 @@ void peer::mysql_select_all()
     auto blob = this->mysql_select<std::vector<u_char>>("inventory");
     const u_char *u8 = blob.data();
 
+    if (blob.size() < sizeof(int) + sizeof(short)) return; // @note nothing saved yet, keep defaults
+
     int pos{};
     memcpy(&this->slot_size, u8 + pos, sizeof(int)); pos += sizeof(int);
     short size{};
     memcpy(&size, u8 + pos, sizeof(short)); pos += sizeof(short);
+    size = static_cast<short>(std::clamp<std::size_t>(std::max<short>(size, 0), 0, (blob.size() - pos) / (sizeof(short) * 2)));
     this->slots.resize(size);
     for (::slot &slot : this->slots)
     {
         memcpy(&slot.id,    u8 + pos, sizeof(short)); pos += sizeof(short);
         memcpy(&slot.count, u8 + pos, sizeof(short)); pos += sizeof(short);
+    }
+
+    // @note quests, achievements and daily reward
+    {
+        const auto saved = this->mysql_select<std::vector<u_char>>("goals");
+        std::size_t at{};
+        const auto read = [&](auto &value) -> bool
+        {
+            if (at + sizeof(value) > saved.size()) return false;
+            memcpy(&value, saved.data() + at, sizeof(value));
+            at += sizeof(value);
+            return true;
+        };
+        const auto read_group = [&](std::unordered_map<int, int> &progress, std::unordered_set<int> &done) -> bool
+        {
+            int count{};
+            if (!read(count) || count < 0 || count > 100000) return false;
+            for (int i = 0; i < count; ++i)
+            {
+                int id{}, value{};
+                if (!read(id) || !read(value)) return false;
+                progress[id] = value;
+            }
+            if (!read(count) || count < 0 || count > 100000) return false;
+            for (int i = 0; i < count; ++i)
+            {
+                int id{};
+                if (!read(id)) return false;
+                done.insert(id);
+            }
+            return true;
+        };
+        u_int magic{};
+        this->quest_progress.clear(); this->achievement_progress.clear();
+        this->quests_done.clear(); this->achievements_done.clear();
+        if (read(magic) && magic == 0x31474f50/*"POG1"*/ && read(this->last_daily) && read(this->daily_streak))
+        {
+            if (!read_group(this->quest_progress, this->quests_done) ||
+                !read_group(this->achievement_progress, this->achievements_done))
+            {
+                std::fprintf(stderr, "[peer] %s has unreadable quest data, partially restored.\n", this->growid.c_str());
+            }
+        }
     }
 }
 
@@ -188,6 +234,32 @@ void peer::save_clothing()
     this->mysql_update<unsigned>("hair_color", this->hair_color);
 }
 
+void peer::save_goals()
+{
+    std::vector<u_char> out;
+    const auto write = [&](auto value)
+    {
+        const std::size_t at = out.size();
+        out.resize(at + sizeof(value));
+        memcpy(out.data() + at, &value, sizeof(value));
+    };
+    const auto write_group = [&](const std::unordered_map<int, int> &progress, const std::unordered_set<int> &done)
+    {
+        write(static_cast<int>(progress.size()));
+        for (const auto &[id, value] : progress) { write(id); write(value); }
+        write(static_cast<int>(done.size()));
+        for (int id : done) write(id);
+    };
+    write(static_cast<u_int>(0x31474f50)); // "POG1"
+    write(this->last_daily);
+    write(this->daily_streak);
+    write_group(this->quest_progress, this->quests_done);
+    write_group(this->achievement_progress, this->achievements_done);
+
+    this->mysql_update<std::vector<u_char>>("goals", out);
+    this->goals_unsaved = 0;
+}
+
 void peer::save_moderation()
 {
     this->mysql_update<signed>("banned", this->banned ? 1 : 0);
@@ -201,6 +273,7 @@ peer::~peer()
         this->save_inventory();
         this->save_progress();
         this->save_clothing();
+        this->save_goals();
     }
 }
 
@@ -219,6 +292,7 @@ u_short peer::emplace(::slot slot)
                 this->update_effects();
                 this->save_clothing();
             }
+            this->slots.erase(it); // @note an empty stack must free its backpack slot (dropped/trashed items used to leave 0-count slots behind)
         }
         this->save_inventory();
         return excess;

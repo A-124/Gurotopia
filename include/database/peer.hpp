@@ -3,6 +3,8 @@
 #include <cmath> // @note std::floor
 #include <deque> // @note std::deque
 #include <functional>
+#include <unordered_map>
+#include <unordered_set>
 
 enum bgra : u_int
 {
@@ -79,6 +81,7 @@ public:
     void save_inventory();
     void save_progress();
     void save_clothing();
+    void save_goals(); // @note quest / achievement progress and daily reward
 
     bool exists(const std::string &growid);
 
@@ -147,6 +150,13 @@ public:
 
     u_short fires_removed{};
     u_short gbc_pity{}; // @note GBC pity; for each 100 will receive super GBC
+
+    /* quests, achievements & daily reward (saved in peer.goals) */
+    std::unordered_map<int, int> quest_progress{}, achievement_progress{}; // @note {goal id, progress}
+    std::unordered_set<int> quests_done{}, achievements_done{};
+    u_int last_daily{}; // @note unix seconds of the last /daily claim
+    int daily_streak{};
+    u_short goals_unsaved{}; // @note progress events since the last save_goals()
 
     bool banned{};
     u_int muted_until{}; // @note unix seconds; 0 = not muted

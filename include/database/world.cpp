@@ -4,6 +4,8 @@
 #include "tools/random.hpp"
 #include "tools/time.hpp"
 #include "onVariant/ConsoleMessage.hpp"
+#include "commands/weather.hpp"
+#include "core/event_bus.hpp"
 
 #include "world.hpp"
 
@@ -33,6 +35,26 @@ namespace
         const u_int now = static_cast<u_int>(std::time(nullptr));
         return now >= cooldown->last_used ? now - cooldown->last_used : 0u;
     }
+}
+
+bool is_weather_machine(const ::item &item) noexcept
+{
+    return item.type == type::WEATHER_MACHINE ||
+           item.type == type::SFX_WEATHER_MACHINE ||
+           item.type == type::SPRITE_WEATHER_MACHINE;
+}
+
+int world::weather_id() const
+{
+    const int x = this->weather.x_int(), y = this->weather.y_int();
+    if (x < 0 || x >= 100 || y < 0 || y >= 60) return 0;
+    if (static_cast<std::size_t>(cord(x, y)) >= this->blocks.size()) return 0;
+
+    const ::block &machine = this->blocks[cord(x, y)];
+    if (machine.fg == 0 || !(machine.state[2] & S_TOGGLE)) return 0;
+
+    const ::item &item = id_to_item(machine.fg);
+    return is_weather_machine(item) ? get_weather_id(item.id) : 0;
 }
 
 void block::reset()
@@ -262,8 +284,8 @@ T world::mysql_select(const std::string &column, const std::string &arg)
     hStmt.fetch();
     if constexpr (std::is_same_v<T, std::string>)
         value.resize(length);
-    else if constexpr (std::is_same_v<T, ::blob>)
-        value.resize(length);
+    else if constexpr (std::is_same_v<T, ::blob> || std::is_same_v<T, std::vector<u_char>>)
+        value.resize(length); // @note std::vector<u_char> used to keep the whole 120000 byte bind buffer, which loaded ~7500 ghost drops
 
     return value;
 }
@@ -350,13 +372,29 @@ void world::mysql_select_all()
     }
     {
         this->trees.clear();
+        this->doors.clear();
+        this->signs.clear();
+        this->displays.clear();
         ::blob blob = this->mysql_select<::blob>("blocks");
-        this->blocks.resize(cord(0, 60));
+        this->blocks.assign(cord(0, 60), ::block{});
 
         const int x = this->blocks.size() / 60;
+        const int total = static_cast<int>(blob.size());
+        bool corrupt = false;
         int pos{};
+        const auto has = [&](int bytes) { return bytes >= 0 && pos + bytes <= total; };
+        const auto has_string = [&]()
+        {
+            if (!has(sizeof(short))) return false;
+            short len{};
+            std::memcpy(&len, blob.data().data() + pos, sizeof(short));
+            return len >= 0 && has(static_cast<int>(sizeof(short)) + len);
+        };
+
         for (u_short i = 0; ::block &block : this->blocks)
         {
+            if (!has(8)) { corrupt = true; break; } // @note empty / truncated save (e.g. crashed while the world was first created)
+
             blob.read_i16(block.fg, pos);
             blob.read_i16(block.bg, pos);
             blob.read_u8(block.state[0], pos);
@@ -364,12 +402,13 @@ void world::mysql_select_all()
             blob.read_u8(block.state[2], pos);
             blob.read_u8(block.state[3], pos);
 
-            if (block.fg != 0 || block.fg!=2||block.fg!=4||block.fg!=8||block.fg!=14) // @note so we can save time
+            if (block.fg != 0)
             if (char type = get_type(id_to_item(block.fg)); type > '\x00')
             {
                 const ::pos block_pos{i % x, i / x};
                 if (type == '\x01'/*doors, portal*/)
                 {
+                    if (!has_string()) { corrupt = true; break; }
                     ::door &door = this->doors.emplace_back("","","", block_pos);
 
                     blob.read_string(door.label, pos);
@@ -377,13 +416,16 @@ void world::mysql_select_all()
                 }
                 else if (type == '\x02'/*sign*/)
                 {
+                    if (!has_string()) { corrupt = true; break; }
                     ::sign &sign = this->signs.emplace_back("", block_pos);
 
                     blob.read_string(sign.label, pos);
+                    if (!has(sizeof(u_int))) { corrupt = true; break; }
                     blob.read_u32(sign.idk, pos);
                 }
                 else if (type == '\x04'/*seed*/)
                 {
+                    if (!has(sizeof(u_int) + sizeof(u_char))) { corrupt = true; break; }
                     ::tree &tree = this->trees.emplace_back(0, 0, block_pos);
 
                     u_int age_seconds{};
@@ -394,6 +436,7 @@ void world::mysql_select_all()
                 }
                 else if (type == '\x17'/*display block*/)
                 {
+                    if (!has(sizeof(u_int))) { corrupt = true; break; }
                     u_int item_id{};
                     blob.read_u32(item_id, pos);
                     if (item_id != 0) this->displays.emplace_back(item_id, block_pos);
@@ -401,23 +444,54 @@ void world::mysql_select_all()
             }
             ++i;
         }
+        if (corrupt)
+        {
+            std::fprintf(stderr, "[world] '%s' has an unreadable block save, regenerating it.\n", this->name.c_str());
+            this->doors.clear(); this->signs.clear(); this->displays.clear(); this->trees.clear();
+            generate_world(*this);
+        }
+
+        // @note weather is not stored in its own column: the machine's S_TOGGLE flag is saved with the blocks,
+        //       so find the active machine again here (and join_request sends it to the player).
+        this->weather = {};
+        for (int i = 0; i < static_cast<int>(this->blocks.size()); ++i)
+        {
+            const ::block &block = this->blocks[i];
+            if (block.fg == 0 || !(block.state[2] & S_TOGGLE)) continue;
+            if (!is_weather_machine(id_to_item(block.fg))) continue;
+
+            this->weather = ::pos{i % x, i / x};
+            break;
+        }
     } // @note delete blob, i
     {
-        auto blob = this->mysql_select<std::vector<u_char>>("objects");
-
+        const auto blob = this->mysql_select<std::vector<u_char>>("objects");
         const u_char *u8 = blob.data(); // @note i did not have the brain capacity to reinterpret it. t-t (memcpy is safer anyways...)
-        int i{};
-        if (blob.size() >= sizeof(u_int)) memcpy(&this->last_object_uid, u8, sizeof(u_int));
-        i += sizeof(u_int); // @todo real gt has this as 8 bits not just 4.
 
-        objects.resize(blob.size() >= sizeof(u_int) ? (blob.size() - sizeof(u_int)) / 16 : 0); // @note count from the saved data, not the last drop uid
-        for (::object &object : this->objects)
+        this->objects.clear();
+        this->last_object_uid = 0;
+        if (blob.size() >= sizeof(u_int))
         {
-            memcpy(&object.id,    u8 + i, sizeof(u_short)); i += sizeof(u_short);
-            memcpy(&object.pos.x, u8 + i, sizeof(float));   i += sizeof(float);
-            memcpy(&object.pos.y, u8 + i, sizeof(float));   i += sizeof(float);
-            memcpy(&object.count, u8 + i, sizeof(u_short)); i += sizeof(u_short);
-            memcpy(&object.uid,   u8 + i, sizeof(u_int));   i += sizeof(u_int);
+            std::size_t i{};
+            memcpy(&this->last_object_uid, u8, sizeof(u_int));
+            i += sizeof(u_int); // @todo real gt has this as 8 bits not just 4.
+
+            constexpr std::size_t record_size = sizeof(u_short) + sizeof(float) * 2 + sizeof(u_short) + sizeof(u_int);
+            const std::size_t count = (blob.size() - i) / record_size;
+            this->objects.reserve(count);
+            for (std::size_t n = 0; n < count; ++n)
+            {
+                ::object object{};
+                memcpy(&object.id,    u8 + i, sizeof(u_short)); i += sizeof(u_short);
+                memcpy(&object.pos.x, u8 + i, sizeof(float));   i += sizeof(float);
+                memcpy(&object.pos.y, u8 + i, sizeof(float));   i += sizeof(float);
+                memcpy(&object.count, u8 + i, sizeof(u_short)); i += sizeof(u_short);
+                memcpy(&object.uid,   u8 + i, sizeof(u_int));   i += sizeof(u_int);
+
+                if (object.id == 0 || object.count == 0) continue; // @note never bring back empty/ghost drops
+                this->last_object_uid = std::max(this->last_object_uid, object.uid);
+                this->objects.push_back(object);
+            }
         }
     } // @note delete blob, i
 }
@@ -478,7 +552,7 @@ void world::save_blocks()
                 else if (type == '\x04')
                 {
                     auto tree = std::ranges::find(this->trees, block_pos, &::tree::pos);
-                    if (tree != this->trees.end()) blob.push_back(tree->to_blob());
+                    if (tree != this->trees.end()) blob.push_back(tree->to_blob(true)); // @note saved as age so load (now - age) restores the real plant time
                 }
                 else if (type == '\x17')
                 {
@@ -601,7 +675,9 @@ u_short modify_item_inventory(ENetEvent &event, ::slot slot)
     else                gamePacket.type = (slot.count    << 24) | 0x000d; // @noote 0x{}00000d
     send_data(*event.peer, compress_state(gamePacket)); // @note only the player whose backpack changes
 
-    return pPeer->emplace(::slot(slot.id, slot.count));
+    const u_short remains = pPeer->emplace(::slot(slot.id, slot.count));
+    if (slot.count > 0) event_bus::emit({ event_bus::type::item_changed, event.peer, {}, slot.id, slot.count }); // @note quests & achievements
+    return remains;
 }
 
 void item_change_object(ENetEvent &event, ::gamePacket gamePacket) 
@@ -859,4 +935,5 @@ void blast::thermonuclear(::world &world)
 
         block.reset();
     }
+    world.weather = ::pos{}; // @note every weather machine was just wiped
 }

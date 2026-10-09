@@ -101,6 +101,7 @@ void create_table_if_not_exist()
     ensure_column("peer", "skin_color", "INT UNSIGNED NOT NULL DEFAULT 2527912447");
     ensure_column("peer", "hair_color", "INT UNSIGNED NOT NULL DEFAULT 16777215");
     ensure_column("peer", "banned", "INT NOT NULL DEFAULT 0");
+    ensure_column("peer", "goals", "BLOB NULL");
     ensure_column("peer", "muted_until", "INT UNSIGNED NOT NULL DEFAULT 0");
     ensure_column("world", "minimum_entry_level", "TINYINT UNSIGNED NOT NULL DEFAULT 1");
     ensure_column("world", "access", "BLOB NULL");

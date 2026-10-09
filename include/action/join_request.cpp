@@ -9,6 +9,7 @@
 #include "tools/time.hpp"
 #include "commands/moderation.hpp"
 #include "quit_to_exit.hpp"
+#include "core/event_bus.hpp"
 
 #include "join_request.hpp"
 
@@ -134,6 +135,12 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
         world.visitors = others_here + 1; // @note real head count, not a drifting counter
         on::SetClothing(*event.peer);
         on::CountryState(event);
+
+        // @note restore the world's weather for the joiner (saved with the weather machine's toggle state)
+        if (const int weather_id = world.weather_id(); weather_id != 0 || world.weather != ::pos{})
+            send_varlist(event.peer, { "OnSetCurrentWeather", weather_id });
+
+        event_bus::emit({ event_bus::type::player_entered_world, event.peer, world.name }); // @note quests & achievements
     }
     catch (const std::exception& exc)
     {

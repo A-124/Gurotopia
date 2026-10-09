@@ -38,6 +38,9 @@ enum lock_state : u_char
 
 char get_type(const ::item &item);
 
+/* @return true for weather machines (normal, sfx and sprite types) */
+bool is_weather_machine(const ::item &item) noexcept;
+
 
 struct block 
 {
@@ -198,6 +201,9 @@ public:
     ::pos weather{};
 
     ::blob serialize();
+
+    /* @return the OnSetCurrentWeather id of the toggled-on weather machine, 0 (sunny) if none */
+    int weather_id() const;
 };
 extern std::vector<world> worlds;
 

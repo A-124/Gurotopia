@@ -5,6 +5,7 @@
 #include "database/custom_content.hpp"
 #include "database/item_registry.hpp"
 #include "gameplay/craft.hpp"
+#include "core/event_bus.hpp"
 
 namespace {
 int inventory_count(const peer& player, int id) {
@@ -61,4 +62,5 @@ void craft(ENetEvent& event, const std::string_view text) {
     send_inventory_state(event);
     send_varlist(event.peer, {"OnConsoleMessage",
         std::format("Crafted {} x{}.", result_id, output)});
+    event_bus::emit({ event_bus::type::item_changed, event.peer, {}, result_id, output }); // @note quests & achievements
 }
