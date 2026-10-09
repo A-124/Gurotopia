@@ -1,7 +1,6 @@
 #pragma once
 #include <string_view>
 #include <enet/enet.h>
-#include "hPipe.hpp"
 void content_status(ENetEvent& event, const std::string_view text);
 void quests_command(ENetEvent& event, const std::string_view text);
 void achievements_command(ENetEvent& event, const std::string_view text);
