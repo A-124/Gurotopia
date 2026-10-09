@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include "database/custom_content.hpp"
+#include "onVariant/SetClothing.hpp"
 
 #include "drop_item.hpp"
 
@@ -29,8 +30,21 @@ void drop_item(ENetEvent& event, const ::hPipe &hPipe)
     const auto held = std::ranges::find(pPeer->slots, itemID, &::slot::id);
     if (held == pPeer->slots.end() || requested_count > held->count) return;
     const short count = static_cast<short>(requested_count);
+    const auto clothing_before = pPeer->clothing;
 
     modify_item_inventory(event, ::slot(itemID, -count));
+
+    // peer::emplace clears a clothing slot when its last inventory copy is
+    // removed, but it cannot notify the client because it has no ENetPeer.
+    // Broadcast the updated appearance so dropped clothing never stays visible.
+    if (pPeer->clothing != clothing_before)
+    {
+        peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD,
+            [pPeer](ENetPeer &recipient)
+            {
+                on::SetClothing(recipient, *pPeer);
+            });
+    }
 
     float x_nabor = (pPeer->facing_left) ? pPeer->pos.x - 32 : pPeer->pos.x + 32;
     add_drop(event, {itemID, count}, {x_nabor, pPeer->pos.y}, *world);
