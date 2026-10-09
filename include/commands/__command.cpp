@@ -23,6 +23,7 @@
 #include "reload.hpp"
 #include "gameplay/content_commands.hpp"
 #include "gameplay/craft.hpp"
+#include "moderation.hpp"
 
 /* emote commands all dispatch to on::Action. listed once here so the
  * cmd_pool registration and the /help text stay in sync automatically. */
@@ -33,25 +34,40 @@ static constexpr std::string_view emotes[24]{
     "dab", "sassy", "dance2", "march", "grumpy", "shy"
 };
 
-/* named commands with their usage hint, shown in /help */
-/* named commands with their usage hint, shown in /help */
-static constexpr std::string_view named_help =
-    "/time /sb {msg} /find /warp {world} /punch {id} /skin {id} /who /me {msg} "
-    "/news /weather {id} /ghost /online /event /reload {target} /content /craft {item_id} [amount]";
-
-std::array<std::string_view, 8> cmd_requires_arg{
-    "sb", "warp", "punch", "skin", "me", "weather", "setrole", "resetallworld"
+/* Commands that require an argument are rejected before dispatch when omitted. */
+std::array<std::string_view, 13> cmd_requires_arg{
+    "sb", "warp", "punch", "skin", "me", "weather", "setrole", "resetallworld",
+    "setlevel", "kick", "ban", "unban", "pull"
 };
 
-/* if you plan to use this outside of this file, please include in __command.hpp (^-^) - and just make it a void. */
-auto help_return = [](ENetEvent& event, const std::string_view text) 
+/* /help is assembled from the caller's actual role and current world access. */
+auto help_return = [](ENetEvent& event, const std::string_view) 
 {
-    std::string list{ named_help };
-    ::peer *pPeer = event.peer ? static_cast<::peer*>(event.peer->data) : nullptr;
-    if (pPeer && pPeer->role >= DEVELOPER) list += " /admin /maint [on|off] /resetworld /resetallworld confirm /ready /setrole {UID} {role}";
+    if (!event.peer) return;
+    ::peer *pPeer = static_cast<::peer*>(event.peer->data);
+    if (!pPeer) return;
+
+    std::string list =
+        "/time /sb <message> /find /warp <world> /punch <id> /skin <id> /who /me <message> "
+        "/news /weather <id> /ghost /online /event /content /craft <item_id> [amount]";
+
+    if (pPeer->role == DEVELOPER)
+    {
+        list += " /admin /maint [on|off] /resetworld /resetallworld confirm /ready "
+                "/setrole <UID> <role> /setlevel <player|UID> <level> /kick <player|UID> "
+                "/ban <player|UID> /unban <player|UID> /pull <player|UID> "
+                "/reload <items|content|store|holiday|all> /startmultiplier <gem> <xp> <seconds> /stopmultiplier";
+    }
+    else if (pPeer->netid != 0 && !pPeer->recent_worlds.back().empty())
+    {
+        auto world = std::ranges::find(worlds, pPeer->recent_worlds.back(), &::world::name);
+        if (world != worlds.end() && (world->owner == pPeer->user_id ||
+            std::ranges::find(world->access, pPeer->user_id) != world->access.end()))
+            list += " /kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID>";
+    }
+
     for (std::string_view emote : emotes)
         list += std::format(" /{}", emote);
-
     send_action(*event.peer, "log", std::format("msg|>> Commands: {} \0", list));
 };
 
@@ -68,6 +84,11 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"resetallworld", &resetallworld},
         {"ready", &ready},
         {"setrole", &setrole},
+        {"setlevel", &command_setlevel},
+        {"kick", &command_kick},
+        {"ban", &command_ban},
+        {"unban", &command_unban},
+        {"pull", &command_pull},
         {"time", &command::time}, // @note namespace is to prevent mismatching C time
         {"find", &find},
         {"warp", &warp},
