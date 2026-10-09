@@ -101,7 +101,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
         send_action(*event.peer, "log",
             "msg|/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
             "/setrole <UID> <role> /setlevel <player|UID> <level> "
-            "/on /online /weather <id> /ghost /punch <id> /content /1hit "
+            "/on /online /weather <id> /ghost /punch <id> /content [/validate] /1hit "
             "/reload <items|content|store|holiday|all> "
             "/startmultiplier <gem> <xp> <seconds> /stopmultiplier");
     }
