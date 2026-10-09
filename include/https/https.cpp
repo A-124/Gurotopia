@@ -236,13 +236,31 @@ static bool serve_asset(SSL *ssl, const std::string &path)
     if (filename.empty() || filename == "." || filename == "..") return false;
 
     const auto ext = std::filesystem::path(filename).extension().string();
-    if (ext != ".rttex" && ext != ".mp3" && ext != ".ogg" && ext != ".wav") return false;
+    if (ext != ".rttex" && ext != ".mp3" && ext != ".ogg" && ext != ".wav" && ext != ".xml") return false;
 
-    const std::filesystem::path file_path =
-        std::filesystem::path("resources/custom_assets") / filename;
+    // Prefer the complete /assets-relative path so different directories can
+    // safely contain assets with the same filename. Keep root-level filenames
+    // working for existing custom assets such as Lkat.rttex.
+    std::filesystem::path relative_asset;
+    constexpr std::string_view assets_prefix = "/assets/";
+    if (std::string_view(path).starts_with(assets_prefix))
+        relative_asset = std::filesystem::path(path.substr(assets_prefix.size()));
+    if (relative_asset.empty() || relative_asset.is_absolute()) return false;
+    for (const auto &part : relative_asset)
+        if (part == "..") return false;
+
+    const std::filesystem::path custom_root("resources/custom_assets");
+    std::filesystem::path file_path = custom_root / relative_asset;
     std::ifstream file(file_path, std::ios::binary | std::ios::ate);
+    if (!file && relative_asset != filename)
+    {
+        // Backward-compatible fallback: existing custom assets live in the root.
+        file_path = custom_root / filename;
+        file.clear();
+        file.open(file_path, std::ios::binary | std::ios::ate);
+    }
     if (!file) return false;
-    std::printf("[https] serving custom asset: %s\n", filename.c_str());
+    std::printf("[https] serving custom asset: %s\\n", file_path.string().c_str());
 
     const std::streamsize size = file.tellg();
     if (size < 0) return false;
