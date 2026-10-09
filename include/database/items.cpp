@@ -332,7 +332,7 @@ bool rebuild_custom_items()
                         std::filesystem::path(def.texture).filename();
                     std::ifstream texture_file(texture_path, std::ios::binary);
                     if (!texture_file) {
-                        std::printf("[items] custom item %u: texture file missing: %s\\n",
+                        std::printf("[items] custom item %u: texture file missing: %s\n",
                                     static_cast<unsigned>(custom_id), texture_path.string().c_str());
                         continue;
                     }
@@ -340,7 +340,7 @@ bool rebuild_custom_items()
                         (std::istreambuf_iterator<char>(texture_file)),
                         std::istreambuf_iterator<char>());
                     if (texture_data.empty()) {
-                        std::printf("[items] custom item %u: texture file is empty: %s\\n",
+                        std::printf("[items] custom item %u: texture file is empty: %s\n",
                                     static_cast<unsigned>(custom_id), texture_path.string().c_str());
                         continue;
                     }
