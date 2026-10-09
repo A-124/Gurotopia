@@ -278,11 +278,15 @@ bool rebuild_custom_items()
         const u_short custom_id = static_cast<u_short>(id);
         write_u32(record, 0, static_cast<u_int>(custom_id));
 
-        // Preserve base flags and change only the tradeability bit.
+        // The two-byte flags field is laid out as property (low byte) +
+        // category (high byte). CAT_UNTRADEABLE belongs to the category byte.
+        // Masking the low byte corrupts the item's property instead.
         u_short flags{};
         std::memcpy(&flags, record.data() + 4, sizeof(flags));
-        if (def.tradeable) flags &= static_cast<u_short>(~CAT_UNTRADEABLE);
-        else flags |= CAT_UNTRADEABLE;
+        constexpr u_short untradeable_flag =
+            static_cast<u_short>(static_cast<u_short>(CAT_UNTRADEABLE) << 8);
+        if (def.tradeable) flags &= static_cast<u_short>(~untradeable_flag);
+        else flags |= untradeable_flag;
         write_u16(record, 4, flags);
 
         write_u8(record, 6, static_cast<u_char>(std::clamp(def.type, 0, 255)));
@@ -327,16 +331,24 @@ bool rebuild_custom_items()
                         std::filesystem::path("resources/custom_assets") /
                         std::filesystem::path(def.texture).filename();
                     std::ifstream texture_file(texture_path, std::ios::binary);
-                    if (texture_file) {
-                        std::vector<u_char> texture_data(
-                            (std::istreambuf_iterator<char>(texture_file)),
-                            std::istreambuf_iterator<char>());
-                        const u_int texture_hash =
-                            hash_bytes(texture_data.data(), texture_data.size());
-                        const std::size_t hash_pos = texture_start + new_len;
-                        if (hash_pos + sizeof(texture_hash) <= record.size())
-                            std::memcpy(record.data() + hash_pos, &texture_hash, sizeof(texture_hash));
+                    if (!texture_file) {
+                        std::printf("[items] custom item %u: texture file missing: %s\\n",
+                                    static_cast<unsigned>(custom_id), texture_path.string().c_str());
+                        continue;
                     }
+                    std::vector<u_char> texture_data(
+                        (std::istreambuf_iterator<char>(texture_file)),
+                        std::istreambuf_iterator<char>());
+                    if (texture_data.empty()) {
+                        std::printf("[items] custom item %u: texture file is empty: %s\\n",
+                                    static_cast<unsigned>(custom_id), texture_path.string().c_str());
+                        continue;
+                    }
+                    const u_int texture_hash =
+                        hash_bytes(texture_data.data(), texture_data.size());
+                    const std::size_t hash_pos = texture_start + new_len;
+                    if (hash_pos + sizeof(texture_hash) > record.size()) continue;
+                    std::memcpy(record.data() + hash_pos, &texture_hash, sizeof(texture_hash));
                 }
             }
         }
