@@ -316,11 +316,16 @@ bool rebuild_custom_items()
                     const u_short new_len = static_cast<u_short>(def.texture.size());
                     write_u16(record, texture_len_pos, new_len);
 
-                    // Change only the texture path and texture hash. Keep every
-                    // other byte from the base record, including texture/animation
-                    // coordinates, audio directory, and versioned punch-FX metadata.
-                    // Resetting the texture coordinates here can break the base item's
-                    // animated hand-item behavior when the custom item is equipped.
+                    // Only redirect the texture. All renderer/animation/punch
+                    // metadata remains byte-for-byte cloned from the base item.
+                    // The custom RTTEX is a standalone sprite, so its cell is (0, 0).
+                    const std::size_t texture_x_pos =
+                        texture_start + new_len + sizeof(u_int) + sizeof(u_char) + sizeof(u_int);
+                    const std::size_t texture_y_pos = texture_x_pos + 1;
+                    if (texture_y_pos < record.size()) {
+                        write_u8(record, texture_x_pos, 0);
+                        write_u8(record, texture_y_pos, 0);
+                    }
 
                     const std::filesystem::path texture_path =
                         std::filesystem::path("resources/custom_assets") /
