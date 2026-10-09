@@ -80,7 +80,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
 
     std::string list = "Player Cmd\n"
         "/help /? /time /sb <message> /find /warp <world> /who /me <message> /news "
-        "/event /craft <item_id> [amount]";
+        "/event /skin <id> /craft <item_id> [amount]";
 
     for (std::string_view emote : emotes)
         list += std::format(" /{}", emote);
@@ -94,7 +94,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
                 "/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
                 "/setrole <UID> <role> /setlevel <player|UID> <level> "
                 "/on /online /weather <id> /ghost /punch <id> /content /1hit "
-                "/skin <id> /reload <items|content|store|holiday|all> "
+                "/reload <items|content|store|holiday|all> "
                 "/startmultiplier <gem> <xp> <seconds> /stopmultiplier";
 
     send_action(*event.peer, "log", std::format("msg|>> Commands:\n{}", list));
