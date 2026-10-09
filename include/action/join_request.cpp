@@ -7,6 +7,7 @@
 #include "onVariant/ConsoleMessage.hpp"
 #include "commands/weather.hpp"
 #include "tools/time.hpp"
+#include "commands/moderation.hpp"
 #include "quit_to_exit.hpp"
 
 #include "join_request.hpp"
@@ -26,6 +27,9 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
 
         for (char &c : name) c = std::toupper(c); // @note start -> START
         
+        if (is_world_banned(name, pPeer->user_id))
+            throw std::runtime_error("You are banned from this world.");
+
         // @note already inside a world (join without quit_to_exit)? leave it properly first,
         //       otherwise the old world keeps a ghost visitor and the netid is reused.
         if (pPeer->netid != 0) action::quit_to_exit(event, "", true);
