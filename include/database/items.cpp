@@ -261,20 +261,30 @@ bool rebuild_custom_items()
     for (const auto& [id, def] : custom_content::items()) {
         if (id < 1000 || id > 65535) continue;
 
-        std::size_t base_index = item_records.size();
+        // The behavior base supplies the server-side runtime item. An optional
+        // render base supplies the raw client record (including renderer and
+        // animation metadata); the custom texture itself remains the configured
+        // file under resources/custom_assets/.
+        std::size_t behavior_base_index = items.size();
         for (std::size_t n = 0; n < items.size(); ++n)
-            if (items[n].id == static_cast<u_short>(def.base_item)) { base_index = n; break; }
-        if (base_index == item_records.size()) continue;
+            if (items[n].id == static_cast<u_short>(def.base_item)) { behavior_base_index = n; break; }
+        if (behavior_base_index == items.size()) continue;
+
+        const int render_base_id = def.render_base_item >= 0 ? def.render_base_item : def.base_item;
+        std::size_t render_base_index = item_records.size();
+        for (std::size_t n = 0; n < items.size(); ++n)
+            if (items[n].id == static_cast<u_short>(render_base_id)) { render_base_index = n; break; }
+        if (render_base_index == item_records.size()) continue;
 
         bool vanilla_id = false;
         for (const auto& vanilla : items)
             if (vanilla.id == static_cast<u_short>(id)) { vanilla_id = true; break; }
         if (vanilla_id || id < static_cast<int>(vanilla_count)) continue;
 
-        const auto& base = item_records[base_index];
-        if (base.size() < 10) continue;
+        const auto& render_base = item_records[render_base_index];
+        if (render_base.size() < 10) continue;
 
-        std::vector<u_char> record = base;
+        std::vector<u_char> record = render_base;
         const u_short custom_id = static_cast<u_short>(id);
         write_u32(record, 0, static_cast<u_int>(custom_id));
 
@@ -353,8 +363,9 @@ bool rebuild_custom_items()
             }
         }
 
-        // Clone server-side wearable metadata from the base item.
-        ::item runtime = items[base_index];
+        // Clone server-side wearable metadata from the behavior base. The optional
+        // render base affects only the client record template above.
+        ::item runtime = items[behavior_base_index];
         runtime.id = custom_id;
         runtime.raw_name = def.name;
         runtime.info = def.info;
