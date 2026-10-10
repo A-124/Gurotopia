@@ -459,6 +459,7 @@ void world::mysql_select_all()
         {
             std::fprintf(stderr, "[world] '%s' has an unreadable block save, regenerating it.\n", this->name.c_str());
             this->doors.clear(); this->signs.clear(); this->displays.clear(); this->trees.clear();
+            generate_world(*this);
         }
         else if (migrated_legacy_pot_gold_block)
         {
