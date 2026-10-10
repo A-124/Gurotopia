@@ -540,9 +540,10 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     }
                     else if (custom_block && custom_block->block_kind == custom_content::custom_block_kind::pot_gold)
                     {
-                        // Pot Gold guarantees a gem payout; the configured multiplier stacks with server events.
-                        const int multiplier = std::max(custom_block->pot_gold_gem_multiplier, 1);
-                        int gems = static_cast<int>(rarity_to_gem) * multiplier * get_gem_multiplier();
+                        // Drop a random configured number of gems instead of multiplying the block's rarity payout.
+                        const int min_gems = std::max(custom_block->pot_gold_min_gems, 1);
+                        const int max_gems = std::max(custom_block->pot_gold_max_gems, min_gems);
+                        const int gems = RandomRange(min_gems, max_gems + 1);
                         for (int i : {100, 50, 10, 5, 1}/* gem type, the denominations the client draws */)
                             for (; gems >= i; gems -= i)
                                 add_drop(event, {112, static_cast<short>(i)}, gamePacket.punch.by_32(), *world);
