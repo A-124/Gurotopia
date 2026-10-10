@@ -43,6 +43,6 @@ recipe|20000|1|2:2
 
 # Custom blocks (IDs must not overlap vanilla item IDs).
 # Lucky Box weights: 2=40%, 10=30%, 18=20%, 112=10% with this four-entry list.
-lucky_box|30000|Lucky Box|2|game/Lucky_box.rttex|2,10,18,112
+lucky_box|30000|Lucky Box|2|game/Lucky_box.rttex|2,10,18
 # Pot Gold drops a random 1 to 50 gems per break; adjust either bound as desired.
 pot_gold|30001|Pot Gold|2|game/Pot_Gold.rttex|1,50
