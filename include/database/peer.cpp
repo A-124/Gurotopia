@@ -5,6 +5,7 @@
 
 #include "items.hpp"
 #include "world.hpp"
+#include "custom_content.hpp"
 #include "onVariant/SetClothing.hpp"
 #include "onVariant/CountryState.hpp"
 #include "onVariant/ConsoleMessage.hpp"
@@ -122,6 +123,25 @@ void peer::mysql_select_all()
     {
         memcpy(&slot.id,    u8 + pos, sizeof(short)); pos += sizeof(short);
         memcpy(&slot.count, u8 + pos, sizeof(short)); pos += sizeof(short);
+    }
+
+    // One-time compatibility migration for players who already owned Pot Gold as
+    // ID 30001 before it was moved to 30002. Only migrate while 30001 is still
+    // unconfigured; once Lucky Box Seed is defined there, never rewrite that ID.
+    const auto* configured_pot_gold = custom_content::find_item(30002);
+    if (!custom_content::find_item(30001) && configured_pot_gold &&
+        configured_pot_gold->block_kind == custom_content::custom_block_kind::pot_gold)
+    {
+        bool migrated = false;
+        for (::slot &slot : this->slots)
+        {
+            if (slot.id == 30001)
+            {
+                slot.id = 30002;
+                migrated = true;
+            }
+        }
+        if (migrated) this->save_inventory();
     }
 
     // @note quests, achievements and daily reward
