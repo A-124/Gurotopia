@@ -286,8 +286,8 @@ bool rebuild_custom_items()
 
         std::vector<u_char> record = render_base;
         const u_short custom_id = static_cast<u_short>(id);
-        // Item IDs occupy two bytes; writing four bytes here overwrites the property flags.
-        write_u16(record, 0, custom_id);
+        // items.dat stores item IDs as uint32, even though the server runtime uses u_short.
+        write_u32(record, 0, static_cast<u_int>(custom_id));
 
         // The two-byte flags field is laid out as property (low byte) +
         // category (high byte). CAT_UNTRADEABLE belongs to the category byte.
@@ -333,7 +333,7 @@ bool rebuild_custom_items()
                     // The texture metadata immediately after the hash and version contains the sprite cell.
                     // Set the cell to (0, 0) for each standalone custom texture.
                     const std::size_t texture_x_pos =
-                        texture_start + new_len + sizeof(u_int) + sizeof(u_char);
+                        texture_start + new_len + sizeof(u_int) + sizeof(u_char) + sizeof(u_int);
                     const std::size_t texture_y_pos = texture_x_pos + 1;
                     if (texture_y_pos < record.size()) {
                         write_u8(record, texture_x_pos, 0);
