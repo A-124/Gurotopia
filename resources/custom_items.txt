@@ -38,11 +38,18 @@
 # recipe|20000|1|2:2
 #
 # Leey Katana: clones Legendary Katana (ID 2592).
-item|20000|Leey Katana|2592|20|10|1|game/Leey_Katanav5.rttex|A custom katana made for Gurotopia.|2592
+item|20000|Leey Katana|2592|20|10|1|game/Leey_Katanav1.rttex|A custom katana made for Gurotopia.|2592
+
+#RECIPE
 recipe|20000|1|2:2
+recipe|30000|1|2:2
+recipe|30002|1|2:2
 
 # Custom blocks (IDs must not overlap vanilla item IDs).
 # Lucky Box weights: 2=50%, 10=33.3%, 18=16.7% with this three-entry list (no gem reward).
-lucky_box|30000|Lucky Box|2|game/Lucky_box.rttex|2,10,18
+lucky_box|30000|Lucky Box|2|game/Lucky_box.rttex|2,160,2228,2874,7276,4626,9698,11340
+
+
+
 # ID 30001 is reserved for the future Lucky Box Seed. Pot Gold uses ID 30002.
-pot_gold|30002|Pot Gold|2|game/Pot_Gold.rttex|1,50
+pot_gold|30002|Pot Gold|2|game/Pot_Gold.rttex|1,100
