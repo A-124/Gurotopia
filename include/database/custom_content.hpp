@@ -10,6 +10,8 @@ struct custom_item {
     int id{};
     std::string name{};
     int base_item{};
+    // Optional client-record template. When unset, base_item supplies both behavior and render metadata.
+    int render_base_item{-1};
     int type{};
     int rarity{};
     bool tradeable{true};
