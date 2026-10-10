@@ -6,6 +6,7 @@
 #include "onVariant/ConsoleMessage.hpp"
 #include "commands/weather.hpp"
 #include "core/event_bus.hpp"
+#include "custom_content.hpp"
 
 #include "world.hpp"
 
@@ -381,6 +382,11 @@ void world::mysql_select_all()
         const int x = this->blocks.size() / 60;
         const int total = static_cast<int>(blob.size());
         bool corrupt = false;
+        bool migrated_legacy_pot_gold_block = false;
+        const auto* configured_pot_gold = custom_content::find_item(30002);
+        const bool migrate_legacy_pot_gold =
+            !custom_content::find_item(30001) && configured_pot_gold &&
+            configured_pot_gold->block_kind == custom_content::custom_block_kind::pot_gold;
         int pos{};
         const auto has = [&](int bytes) { return bytes >= 0 && pos + bytes <= total; };
         const auto has_string = [&]()
@@ -397,6 +403,11 @@ void world::mysql_select_all()
 
             blob.read_i16(block.fg, pos);
             blob.read_i16(block.bg, pos);
+            if (migrate_legacy_pot_gold)
+            {
+                if (block.fg == 30001) { block.fg = 30002; migrated_legacy_pot_gold_block = true; }
+                if (block.bg == 30001) { block.bg = 30002; migrated_legacy_pot_gold_block = true; }
+            }
             blob.read_u8(block.state[0], pos);
             blob.read_u8(block.state[1], pos);
             blob.read_u8(block.state[2], pos);
@@ -448,7 +459,12 @@ void world::mysql_select_all()
         {
             std::fprintf(stderr, "[world] '%s' has an unreadable block save, regenerating it.\n", this->name.c_str());
             this->doors.clear(); this->signs.clear(); this->displays.clear(); this->trees.clear();
-            generate_world(*this);
+        }
+        else if (migrated_legacy_pot_gold_block)
+        {
+            // Persist the migrated block IDs so ID 30001 can safely be used by
+            // the future Lucky Box Seed without reinterpreting old Pot Gold blocks.
+            this->save_blocks();
         }
 
         // @note weather is not stored in its own column: the machine's S_TOGGLE flag is saved with the blocks,
@@ -470,6 +486,7 @@ void world::mysql_select_all()
 
         this->objects.clear();
         this->last_object_uid = 0;
+        bool migrated_legacy_pot_gold_object = false;
         if (blob.size() >= sizeof(u_int))
         {
             std::size_t i{};
@@ -483,6 +500,11 @@ void world::mysql_select_all()
             {
                 ::object object{};
                 memcpy(&object.id,    u8 + i, sizeof(u_short)); i += sizeof(u_short);
+                if (migrate_legacy_pot_gold && object.id == 30001)
+                {
+                    object.id = 30002;
+                    migrated_legacy_pot_gold_object = true;
+                }
                 memcpy(&object.pos.x, u8 + i, sizeof(float));   i += sizeof(float);
                 memcpy(&object.pos.y, u8 + i, sizeof(float));   i += sizeof(float);
                 memcpy(&object.count, u8 + i, sizeof(u_short)); i += sizeof(u_short);
@@ -493,6 +515,7 @@ void world::mysql_select_all()
                 this->objects.push_back(object);
             }
         }
+        if (migrated_legacy_pot_gold_object) this->save_objects();
     } // @note delete blob, i
 }
 
