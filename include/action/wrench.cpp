@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include "tools/create_dialog.hpp"
 #include "wrench.hpp"
+#include "gameplay/achievement_system.hpp"
 
 void action::wrench(ENetEvent& event, const std::string& header) 
 {
@@ -19,6 +20,8 @@ void action::wrench(ENetEvent& event, const std::string& header)
                 /* wrench yourself */
                 if (pOthers->user_id == pPeer->user_id)
                 {
+                    const auto achievement_total = achievement_system::all().size();
+                    const auto achievement_done = std::min(pOthers->achievements_done.size(), achievement_total);
                     send_varlist(event.peer, {
                         "OnDialogRequest",
                         ::create_dialog()
@@ -41,7 +44,7 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             .add_custom_button("bonus", "image:interface/large/gui_wrench_daily_bonus_active.rttex;image_size:400,260;width:0.19;")
                             .add_custom_button("my_worlds", "image:interface/large/gui_wrench_my_worlds.rttex;image_size:400,260;width:0.19;")
                             .add_custom_button("alist", "image:interface/large/gui_wrench_achievements.rttex;image_size:400,260;width:0.19;")
-                            .add_custom_label("(0/173)"/*@todo add achivements*/, "target:alist;top:0.72;left:0.5;size:small")
+                            .add_custom_label(std::format("({}/{})", achievement_done, achievement_total), "target:alist;top:0.72;left:0.5;size:small")
                             .add_custom_button("emojis", "image:interface/large/gui_wrench_growmojis.rttex;image_size:400,260;width:0.19;")
                             .add_custom_button("marvelous_missions", "image:interface/large/gui_wrench_marvelous_missions.rttex;image_size:400,260;width:0.19;")
                             .add_custom_button("title_edit", "image:interface/large/gui_wrench_title.rttex;image_size:400,260;width:0.19;")
