@@ -53,7 +53,7 @@ bool parse_file(parsed_content& parsed) {
             if (fields.size() != 6) {
                 add_error(parsed, line_number, fields[0] == "lucky_box"
                     ? "expected lucky_box|id|name|base_item|texture_path|drop_id,drop_id,..."
-                    : "expected pot_gold|id|name|base_item|texture_path|gem_multiplier");
+                    : "expected pot_gold|id|name|base_item|texture_path|min_gems,max_gems");
                 continue;
             }
 
@@ -95,7 +95,9 @@ bool parse_file(parsed_content& parsed) {
                 add_error(parsed, line_number, "base_item must reference an existing vanilla item");
                 continue;
             }
-            def.type = base->type;
+            // These definitions represent placeable foreground blocks. Do not let a
+            // chosen behavior base accidentally turn a custom block into another action type.
+            def.type = static_cast<u_char>(::type::FOREGROUND);
             def.rarity = base->rarity;
             def.tradeable = (base->cat & CAT_UNTRADEABLE) == 0;
 
@@ -128,9 +130,15 @@ bool parse_file(parsed_content& parsed) {
                     continue;
                 }
             } else {
-                if (!integer(fields[5], def.pot_gold_gem_multiplier) ||
-                    def.pot_gold_gem_multiplier < 1 || def.pot_gold_gem_multiplier > 100000) {
-                    add_error(parsed, line_number, "Pot Gold gem_multiplier must be between 1 and 100000");
+                const auto gem_range = split(fields[5], ',');
+                if (gem_range.size() != 2 ||
+                    !integer(gem_range[0], def.pot_gold_min_gems) ||
+                    !integer(gem_range[1], def.pot_gold_max_gems) ||
+                    def.pot_gold_min_gems < 1 ||
+                    def.pot_gold_max_gems < def.pot_gold_min_gems ||
+                    def.pot_gold_max_gems > 100000) {
+                    add_error(parsed, line_number,
+                        "Pot Gold range must be min_gems,max_gems with 1 <= min <= max <= 100000");
                     continue;
                 }
             }

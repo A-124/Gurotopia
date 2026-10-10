@@ -286,6 +286,7 @@ bool rebuild_custom_items()
 
         std::vector<u_char> record = render_base;
         const u_short custom_id = static_cast<u_short>(id);
+        // items.dat stores item IDs as uint32, even though the server runtime uses u_short.
         write_u32(record, 0, static_cast<u_int>(custom_id));
 
         // The two-byte flags field is laid out as property (low byte) +
@@ -329,12 +330,21 @@ bool rebuild_custom_items()
                     // Only redirect the texture. All renderer/animation/punch
                     // metadata remains byte-for-byte cloned from the base item.
                     // The custom RTTEX is a standalone sprite, so its cell is (0, 0).
+                    // The texture metadata immediately after the hash and version contains the sprite cell.
+                    // Set the cell to (0, 0) for each standalone custom texture.
                     const std::size_t texture_x_pos =
                         texture_start + new_len + sizeof(u_int) + sizeof(u_char) + sizeof(u_int);
                     const std::size_t texture_y_pos = texture_x_pos + 1;
-                    if (texture_y_pos < record.size()) {
+                    const std::size_t spread_type_pos = texture_y_pos + 1;
+                    const std::size_t stripey_wallpaper_pos = spread_type_pos + 1;
+                    if (stripey_wallpaper_pos < record.size()) {
+                        // A standalone RTTEX starts at cell (0, 0). Do not inherit
+                        // Dirt's atlas spread/stripey flags, which are not valid for
+                        // an independent custom texture.
                         write_u8(record, texture_x_pos, 0);
                         write_u8(record, texture_y_pos, 0);
+                        write_u8(record, spread_type_pos, 0);
+                        write_u8(record, stripey_wallpaper_pos, 0);
                     }
 
                     const std::filesystem::path texture_path =
