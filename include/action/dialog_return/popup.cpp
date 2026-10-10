@@ -20,6 +20,18 @@ void popup(ENetEvent& event, const ::hPipe &hPipe)
         achievements_command(event, "");
         return;
     }
+    if (hPipe["buttonClicked"] == "goals")
+    {
+        // The wrench menu Goals & Quests entry uses the existing quest tracker.
+        quests_command(event, "");
+        return;
+    }
+    if (hPipe["buttonClicked"] == "bonus")
+    {
+        // Reuse the daily rewards implementation instead of leaving the button inert.
+        daily_command(event, "");
+        return;
+    }
     if (hPipe["buttonClicked"] == "my_worlds")
     {
         auto section = [](const auto &range) 
