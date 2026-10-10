@@ -14,6 +14,7 @@
 #include "action/dialog_return/vending.hpp"
 #include "automate/holiday.hpp"
 #include "commands/event_manager.hpp"
+#include "database/custom_content.hpp"
 #include "core/event_bus.hpp"
 
 #include "tile_change.hpp"
@@ -509,19 +510,50 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                         (item.rarity >= 32) ? 9 :
                         (item.rarity >= 24) ? 5 : 1;
 
-                    if (!RandomRange(0, (rarity_to_gem > 1) ? 2 : 4)) // @note double chances if farmable. (RandomRange's upper bound is exclusive: (0, 1) was always 0, i.e. a 100% drop)
+                    const auto* custom_block = custom_content::find_item(item.id);
+                    if (custom_block && custom_block->block_kind == custom_content::custom_block_kind::lucky_box)
                     {
-                        // @note RandomRange's upper bound is exclusive, so +1 makes rarity_to_gem a possible roll.
-                        int gems = static_cast<int>(RandomRange(1, rarity_to_gem + 1) * get_gem_multiplier());
+                        // Positional weights: with N configured IDs, weights are N, N-1, ..., 1.
+                        // This makes the leftmost entry most likely and the rightmost least likely.
+                        const auto& drops = custom_block->lucky_box_drops;
+                        int total_weight = static_cast<int>(drops.size() * (drops.size() + 1) / 2);
+                        int roll = RandomRange(0, total_weight);
+                        for (std::size_t n = 0; n < drops.size(); ++n)
+                        {
+                            const int weight = static_cast<int>(drops.size() - n);
+                            if (roll < weight)
+                            {
+                                add_drop(event, ::slot(static_cast<short>(drops[n]), 1), gamePacket.punch.by_32(), *world);
+                                break;
+                            }
+                            roll -= weight;
+                        }
+                    }
+                    else if (custom_block && custom_block->block_kind == custom_content::custom_block_kind::pot_gold)
+                    {
+                        // Pot Gold guarantees a gem payout; the configured multiplier stacks with server events.
+                        const int multiplier = std::max(custom_block->pot_gold_gem_multiplier, 1);
+                        int gems = static_cast<int>(rarity_to_gem) * multiplier * get_gem_multiplier();
                         for (int i : {100, 50, 10, 5, 1}/* gem type, the denominations the client draws */)
-                            for (; gems >= i; gems -= i/* downgrade type */)
+                            for (; gems >= i; gems -= i)
                                 add_drop(event, {112, static_cast<short>(i)}, gamePacket.punch.by_32(), *world);
                     }
-                    const bool never_drops_seed = (item.property & 0x04) != 0;
-                    if (!never_drops_seed && !RandomRange(0, (rarity_to_gem > 1) ? 2 : 4))
-                        add_drop(event, ::slot(item.id + 1, 1), gamePacket.punch.by_32(), *world);
-                    else if (!RandomRange(0, (rarity_to_gem > 1) ? 4 : 8))
-                        add_drop(event, ::slot(item.id, 1), gamePacket.punch.by_32(), *world);
+                    else
+                    {
+                        if (!RandomRange(0, (rarity_to_gem > 1) ? 2 : 4)) // @note double chances if farmable. (RandomRange's upper bound is exclusive: (0, 1) was always 0, i.e. a 100% drop)
+                        {
+                            // @note RandomRange's upper bound is exclusive, so +1 makes rarity_to_gem a possible roll.
+                            int gems = static_cast<int>(RandomRange(1, rarity_to_gem + 1) * get_gem_multiplier());
+                            for (int i : {100, 50, 10, 5, 1}/* gem type, the denominations the client draws */)
+                                for (; gems >= i; gems -= i/* downgrade type */)
+                                    add_drop(event, {112, static_cast<short>(i)}, gamePacket.punch.by_32(), *world);
+                        }
+                        const bool never_drops_seed = (item.property & 0x04) != 0;
+                        if (!never_drops_seed && !RandomRange(0, (rarity_to_gem > 1) ? 2 : 4))
+                            add_drop(event, ::slot(item.id + 1, 1), gamePacket.punch.by_32(), *world);
+                        else if (!RandomRange(0, (rarity_to_gem > 1) ? 4 : 8))
+                            add_drop(event, ::slot(item.id, 1), gamePacket.punch.by_32(), *world);
+                    }
                 } /* ~gem drop */
 
                 pPeer->add_xp(event, std::trunc(1.0f + item.rarity / 5.0f));
