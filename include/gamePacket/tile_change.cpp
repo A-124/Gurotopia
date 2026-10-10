@@ -544,8 +544,9 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                         const int min_gems = std::max(custom_block->pot_gold_min_gems, 1);
                         const int max_gems = std::max(custom_block->pot_gold_max_gems, min_gems);
                         const int gems = RandomRange(min_gems, max_gems + 1);
+                        int remaining_gems = gems;
                         for (int i : {100, 50, 10, 5, 1}/* gem type, the denominations the client draws */)
-                            for (; gems >= i; gems -= i)
+                            for (; remaining_gems >= i; remaining_gems -= i)
                                 add_drop(event, {112, static_cast<short>(i)}, gamePacket.punch.by_32(), *world);
                     }
                     else
