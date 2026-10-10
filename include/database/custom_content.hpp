@@ -21,7 +21,8 @@ struct custom_item {
     custom_block_kind block_kind{custom_block_kind::none};
     // Lucky Box uses positional weights: first ID has the highest chance, last the lowest.
     std::vector<int> lucky_box_drops{};
-    int pot_gold_gem_multiplier{1};
+    int pot_gold_min_gems{1};
+    int pot_gold_max_gems{50};
 };
 struct recipe { int result{}; int amount{1}; std::vector<std::pair<int, int>> ingredients; };
 // Validate without mutating the active registry. Empty means valid.
