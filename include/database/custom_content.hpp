@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 namespace custom_content {
+enum class custom_block_kind { none, lucky_box, pot_gold };
 struct custom_item {
     int id{};
     std::string name{};
@@ -17,6 +18,10 @@ struct custom_item {
     bool tradeable{true};
     std::string texture{};
     std::string info{};
+    custom_block_kind block_kind{custom_block_kind::none};
+    // Lucky Box uses positional weights: first ID has the highest chance, last the lowest.
+    std::vector<int> lucky_box_drops{};
+    int pot_gold_gem_multiplier{1};
 };
 struct recipe { int result{}; int amount{1}; std::vector<std::pair<int, int>> ingredients; };
 // Validate without mutating the active registry. Empty means valid.
