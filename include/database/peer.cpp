@@ -381,16 +381,10 @@ void peer::update_effects()
         if (item_id != 0)
         {
             const ::item &equipped = id_to_item(item_id);
+            // Every equipped back-slot clothing item (including all capes)
+            // grants double jump, not only items whose names contain "wing".
             if (equipped.cloth_type == clothing::BACK)
-            {
-                std::string name = equipped.raw_name;
-                std::ranges::transform(name, name.begin(), [](unsigned char c)
-                {
-                    return static_cast<char>(std::tolower(c));
-                });
-                if (name.find("wing") != std::string::npos)
-                    has_double_jump = true;
-            }
+                has_double_jump = true;
         }
     }
 
