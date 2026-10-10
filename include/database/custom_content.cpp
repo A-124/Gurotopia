@@ -50,8 +50,8 @@ bool parse_file(parsed_content& parsed) {
         if (fields.empty()) { add_error(parsed, line_number, "empty definition"); continue; }
 
         if (fields[0] == "item") {
-            if (fields.size() < 6 || fields.size() > 9) {
-                add_error(parsed, line_number, "expected item|id|name|base_item|type|rarity|tradeable(0/1)|texture|info"); continue;
+            if (fields.size() < 6 || fields.size() > 10) {
+                add_error(parsed, line_number, "expected item|id|name|base_item|type|rarity|tradeable(0/1)|texture|info|render_base_item(optional)"); continue;
             }
             custom_item def;
             if (!integer(fields[1], def.id) || !integer(fields[3], def.base_item) ||
@@ -59,6 +59,9 @@ bool parse_file(parsed_content& parsed) {
                 add_error(parsed, line_number, "item id, base_item, type, and rarity must be integers"); continue;
             }
             def.name = fields[2];
+            if (fields.size() > 9 && !integer(fields[9], def.render_base_item)) {
+                add_error(parsed, line_number, "render_base_item must be an integer vanilla item ID"); continue;
+            }
             if (fields.size() > 6) {
                 if (fields[6] != "0" && fields[6] != "1") {
                     add_error(parsed, line_number, "tradeable must be 0 or 1"); continue;
@@ -75,6 +78,10 @@ bool parse_file(parsed_content& parsed) {
             }
             if (def.base_item < 0 || def.base_item > 65535 || !has_vanilla_item(def.base_item)) {
                 add_error(parsed, line_number, "base_item must reference an existing vanilla item"); continue;
+            }
+            if (def.render_base_item != -1 &&
+                (def.render_base_item < 0 || def.render_base_item > 65535 || !has_vanilla_item(def.render_base_item))) {
+                add_error(parsed, line_number, "render_base_item must reference an existing vanilla item"); continue;
             }
             if (def.type < 0 || def.type > 255) {
                 add_error(parsed, line_number, "type must be between 0 and 255"); continue;
