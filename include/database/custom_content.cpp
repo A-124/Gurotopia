@@ -95,7 +95,9 @@ bool parse_file(parsed_content& parsed) {
                 add_error(parsed, line_number, "base_item must reference an existing vanilla item");
                 continue;
             }
-            def.type = base->type;
+            // These definitions represent placeable foreground blocks. Do not let a
+            // chosen behavior base accidentally turn a custom block into another action type.
+            def.type = static_cast<u_char>(::type::FOREGROUND);
             def.rarity = base->rarity;
             def.tradeable = (base->cat & CAT_UNTRADEABLE) == 0;
 
