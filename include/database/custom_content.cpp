@@ -49,6 +49,91 @@ bool parse_file(parsed_content& parsed) {
         const auto fields = split(std::string(content), '|');
         if (fields.empty()) { add_error(parsed, line_number, "empty definition"); continue; }
 
+        if (fields[0] == "lucky_box" || fields[0] == "pot_gold") {
+            if (fields.size() != 6) {
+                add_error(parsed, line_number, fields[0] == "lucky_box"
+                    ? "expected lucky_box|id|name|base_item|texture_path|drop_id,drop_id,..."
+                    : "expected pot_gold|id|name|base_item|texture_path|gem_multiplier");
+                continue;
+            }
+
+            custom_item def;
+            int base_item{};
+            if (!integer(fields[1], def.id) || !integer(fields[3], base_item)) {
+                add_error(parsed, line_number, "custom block id and base_item must be integers");
+                continue;
+            }
+            def.name = fields[2];
+            def.base_item = base_item;
+            def.texture = fields[4];
+            def.block_kind = fields[0] == "lucky_box"
+                ? custom_block_kind::lucky_box : custom_block_kind::pot_gold;
+
+            if (def.id < 1000 || def.id > 65535 || def.id < static_cast<int>(::items.size()) || has_vanilla_item(def.id)) {
+                add_error(parsed, line_number, "custom block id must be 1000..65535 and must not overlap vanilla IDs");
+                continue;
+            }
+            if (!has_vanilla_item(def.base_item)) {
+                add_error(parsed, line_number, "base_item must reference an existing vanilla item");
+                continue;
+            }
+            if (trim(def.name).empty() || def.texture.empty()) {
+                add_error(parsed, line_number, "custom block name and texture_path cannot be empty");
+                continue;
+            }
+            if (def.name.size() > 32767 || def.texture.size() > 32767) {
+                add_error(parsed, line_number, "custom block name and texture_path must each be at most 32767 bytes");
+                continue;
+            }
+            if (parsed.items.contains(def.id)) {
+                add_error(parsed, line_number, std::format("duplicate custom item/block id {}", def.id));
+                continue;
+            }
+
+            const auto base = std::ranges::find(::items, static_cast<u_short>(def.base_item), &::item::id);
+            if (base == ::items.end()) {
+                add_error(parsed, line_number, "base_item must reference an existing vanilla item");
+                continue;
+            }
+            def.type = base->type;
+            def.rarity = base->rarity;
+            def.tradeable = (base->cat & CAT_UNTRADEABLE) == 0;
+
+            const auto texture_path = std::filesystem::path("resources/custom_assets") /
+                std::filesystem::path(def.texture).filename();
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(texture_path, ec) || ec ||
+                std::filesystem::file_size(texture_path, ec) == 0 || ec) {
+                add_error(parsed, line_number, std::format("texture file is missing, empty, or unreadable: {}", texture_path.string()));
+                continue;
+            }
+
+            if (def.block_kind == custom_block_kind::lucky_box) {
+                for (const auto& token : split(fields[5], ',')) {
+                    int drop_id{};
+                    if (!integer(token, drop_id) || drop_id < 0 || drop_id > 65535) {
+                        add_error(parsed, line_number, std::format("invalid Lucky Box drop ID '{}'; expected comma-separated item IDs", token));
+                        def.lucky_box_drops.clear();
+                        break;
+                    }
+                    def.lucky_box_drops.emplace_back(drop_id);
+                }
+                if (def.lucky_box_drops.empty()) {
+                    add_error(parsed, line_number, "Lucky Box must configure at least one drop item ID");
+                    continue;
+                }
+            } else {
+                if (!integer(fields[5], def.pot_gold_gem_multiplier) ||
+                    def.pot_gold_gem_multiplier < 1 || def.pot_gold_gem_multiplier > 100000) {
+                    add_error(parsed, line_number, "Pot Gold gem_multiplier must be between 1 and 100000");
+                    continue;
+                }
+            }
+
+            parsed.items.emplace(def.id, std::move(def));
+            continue;
+        }
+
         if (fields[0] == "item") {
             if (fields.size() < 6 || fields.size() > 10) {
                 add_error(parsed, line_number, "expected item|id|name|base_item|type|rarity|tradeable(0/1)|texture|info|render_base_item(optional)"); continue;
@@ -146,10 +231,18 @@ bool parse_file(parsed_content& parsed) {
             parsed.recipes.emplace(def.result, std::move(def));
             continue;
         }
-        add_error(parsed, line_number, std::format("unknown definition '{}'; expected 'item' or 'recipe'", fields[0]));
+        add_error(parsed, line_number, std::format("unknown definition '{}'; expected 'item', 'lucky_box', 'pot_gold', or 'recipe'", fields[0]));
     }
     if (file.bad()) parsed.errors.emplace_back("resources/custom_items.txt: read error");
     if (::items.empty()) parsed.errors.emplace_back("items.dat must be loaded before custom content can be validated");
+    for (const auto& [custom_id, custom_def] : parsed.items) {
+        (void)custom_id;
+        for (const int drop_id : custom_def.lucky_box_drops) {
+            if (!parsed.items.contains(drop_id) && !has_vanilla_item(drop_id)) {
+                parsed.errors.emplace_back(std::format("Lucky Box {} references unknown drop item ID {}", custom_def.id, drop_id));
+            }
+        }
+    }
     for (const auto& [result_id, def] : parsed.recipes) {
         if (!parsed.items.contains(result_id) && !has_vanilla_item(result_id))
             parsed.errors.emplace_back(std::format("recipe result id {} does not reference an existing vanilla or custom item", result_id));
