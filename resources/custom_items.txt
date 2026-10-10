@@ -1,17 +1,22 @@
 # Gurotopia custom content configuration
 #
 # ITEM FORMAT (one item per line):
-# item|id|name|base_item|type|rarity|tradeable|texture_path|info
+# item|id|name|base_item|type|rarity|tradeable|texture_path|info|render_base_item(optional)
 #
 # Fields:
 # id          = unique custom item ID (1000-65535; do not reuse vanilla IDs)
 # name        = item name shown in inventory and dialogs
-# base_item   = vanilla item ID to clone behavior/metadata from
+# base_item   = vanilla item ID used for server-side behavior/runtime metadata
+# render_base_item = optional vanilla item ID used as the client record/render template;
+#                    useful when a different item has more suitable sprite/render metadata
 # type        = item type/action_type (e.g. 20 = clothing; usually match base_item)
 # rarity      = rarity number shown in item info
 # tradeable   = 1 allows dropping/trading; 0 marks it untradeable
 # texture_path= client texture path in items.dat (e.g. game/Leey_Katana.rttex)
 # info        = text shown in the /info item dialog; do not use the | character
+#
+# NOTE: canvas dimensions are carried by the custom .rttex file itself. This option
+# selects a client item-record template; it does not resize or pad the .rttex file.
 #
 # The server loads texture files from resources/custom_assets/ using the basename
 # of texture_path. Keep the texture_path in the same format as vanilla items.dat.
