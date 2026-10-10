@@ -491,7 +491,10 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
 
             // Items with property 0x08 are indestructible: breaking one returns it
             // as a world object, just like the CAT_RETURN item category.
-            if ((item.cat & CAT_RETURN) || (item.property & 0x08))
+            const auto* break_custom_block = custom_content::find_item(item.id);
+            const bool has_custom_block_break_behavior = break_custom_block &&
+                break_custom_block->block_kind != custom_content::custom_block_kind::none;
+            if (((item.cat & CAT_RETURN) || (item.property & 0x08)) && !has_custom_block_break_behavior)
             {
                 int uid = add_object(event, ::slot(item.id, 1), gamePacket.pos, *world);
                 item_activate_object(event, ::gamePacket{.id = uid, .punch = gamePacket.punch});
@@ -518,16 +521,22 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                         const auto& drops = custom_block->lucky_box_drops;
                         int total_weight = static_cast<int>(drops.size() * (drops.size() + 1) / 2);
                         int roll = RandomRange(0, total_weight);
+                        bool dropped = false;
                         for (std::size_t n = 0; n < drops.size(); ++n)
                         {
                             const int weight = static_cast<int>(drops.size() - n);
                             if (roll < weight)
                             {
                                 add_drop(event, ::slot(static_cast<short>(drops[n]), 1), gamePacket.punch.by_32(), *world);
+                                dropped = true;
                                 break;
                             }
                             roll -= weight;
                         }
+                        // A configured Lucky Box must always award an item, even if
+                        // a future RNG change ever makes the weighted selection miss.
+                        if (!dropped && !drops.empty())
+                            add_drop(event, ::slot(static_cast<short>(drops.front()), 1), gamePacket.punch.by_32(), *world);
                     }
                     else if (custom_block && custom_block->block_kind == custom_content::custom_block_kind::pot_gold)
                     {
