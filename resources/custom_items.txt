@@ -15,8 +15,9 @@
 # texture_path= client texture path in items.dat (e.g. game/Leey_Katana.rttex)
 # info        = text shown in the /info item dialog; do not use the | character
 #
-# NOTE: canvas dimensions are carried by the custom .rttex file itself. This option
-# selects a client item-record template; it does not resize or pad the .rttex file.
+# NOTE: the server passes the configured .rttex asset through; it does not resize or pad it.
+# To test a larger canvas, replace resources/custom_assets/Leey_Katanav5.rttex with your
+# larger .rttex file and keep the texture path below. Client rendering may still impose limits.
 #
 # The server loads texture files from resources/custom_assets/ using the basename
 # of texture_path. Keep the texture_path in the same format as vanilla items.dat.
@@ -28,5 +29,5 @@
 # recipe|20000|1|2:2
 #
 # Leey Katana: clones Legendary Katana (ID 2592).
-item|20000|Leey Katana|2592|20|10|1|game/Leey_Katanav5.rttex|A custom katana made for Gurotopia.
+item|20000|Leey Katana|2592|20|10|1|game/Leey_Katanav5.rttex|A custom katana made for Gurotopia.|2592
 recipe|20000|1|2:2
