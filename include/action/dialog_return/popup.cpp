@@ -32,6 +32,44 @@ void popup(ENetEvent& event, const ::hPipe &hPipe)
         daily_command(event, "");
         return;
     }
+    if (hPipe["buttonClicked"] == "trade_scan")
+    {
+        std::unordered_map<short, int> totals;
+        for (const auto &slot : pPeer->slots)
+        {
+            if (slot.id <= 0 || slot.count <= 0 ||
+                slot.id >= static_cast<int>(items.size()))
+                continue;
+            const auto &item = id_to_item(static_cast<u_short>(slot.id));
+            if (item.id != slot.id || (item.cat & CAT_UNTRADEABLE))
+                continue;
+            totals[slot.id] += slot.count;
+        }
+
+        std::vector<std::pair<short, int>> sorted(totals.begin(), totals.end());
+        std::ranges::sort(sorted, [](const auto &a, const auto &b)
+        {
+            return a.first < b.first;
+        });
+
+        std::string dialog =
+            "set_bg_color|15,50,75,235|\n"
+            "set_border_color|75,205,230,255|\n"
+            "add_label_with_icon|big|Trade-Scan|left|6016|\n"
+            "add_textbox|Items in your backpack that are not marked untradeable.|left|\n"
+            "add_spacer|small|\n";
+        if (sorted.empty())
+            dialog += "add_textbox|No tradeable items found in your backpack.|left|\n";
+        for (const auto &[id, count] : sorted)
+        {
+            const auto &item = id_to_item(static_cast<u_short>(id));
+            dialog += std::format("add_label_with_icon|small|{} x{}|left|{}|\n",
+                item.raw_name, count, id);
+        }
+        dialog += "add_spacer|small|\nend_dialog|trade_scan||Close|\nadd_quick_exit|\n";
+        send_varlist(event.peer, {"OnDialogRequest", std::move(dialog)});
+        return;
+    }
     if (hPipe["buttonClicked"] == "my_worlds")
     {
         auto section = [](const auto &range) 
