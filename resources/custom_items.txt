@@ -26,6 +26,7 @@
 # lucky_box|id|name|base_item|texture_path|drop_id,drop_id,...
 #   Drop IDs are weighted by position: with 4 IDs, their weights are 4, 3, 2, 1.
 #   Therefore the leftmost item is most likely and the rightmost is least likely.
+
 # pot_gold|id|name|base_item|texture_path|min_gems,max_gems
 #   Pot Gold drops a random number of gems between min_gems and max_gems (inclusive).
 # base_item should be a vanilla block whose rendering/behavior metadata is suitable.
@@ -47,9 +48,9 @@ recipe|30002|1|2:2
 
 # Custom blocks (IDs must not overlap vanilla item IDs).
 # Lucky Box weights: 2=50%, 10=33.3%, 18=16.7% with this three-entry list (no gem reward).
-lucky_box|30000|Lucky Box|2|game/Lucky_box.rttex|2,160,2228,2874,7276,4626,9698,11340
+lucky_box|30000|`cLucky Box|2|game/Lucky_box.rttex|2,160,2228,2874,7276,4626,9698,11340
 
 
 
 # ID 30001 is reserved for the future Lucky Box Seed. Pot Gold uses ID 30002.
-pot_gold|30002|Pot Gold|2|game/Pot_Gold.rttex|1,100
+pot_gold|30002|`cPot Gold|2|game/Pot_Gold.rttex|1,100
