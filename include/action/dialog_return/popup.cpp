@@ -2,6 +2,7 @@
 
 #include "popup.hpp"
 #include "trade.hpp"
+#include "gameplay/content_commands.hpp"
 
 void popup(ENetEvent& event, const ::hPipe &hPipe)
 {
@@ -11,6 +12,12 @@ void popup(ENetEvent& event, const ::hPipe &hPipe)
     if (hPipe["buttonClicked"] == "trade")
     {
         trade::handle(event, hPipe);
+        return;
+    }
+    if (hPipe["buttonClicked"] == "alist")
+    {
+        // Reuse the existing achievement system and its progress dialog.
+        achievements_command(event, "");
         return;
     }
     if (hPipe["buttonClicked"] == "my_worlds")
