@@ -65,40 +65,6 @@ The profile also shows real play time, account age, active effects and the playe
 ### Shared dialog theme
 `include/tools/ui.hpp` holds the colours and helpers (`header`, `section`, `bar`, `footer`, `sanitize`) used by the new dialogs.
 
-# Deployment (Docker, recommended)
-
-```bash
-cp .env.example .env          # set DB_PASSWORD and PUBLIC_ADDRESS
-docker compose up -d --build
-docker compose logs -f gurotopia
-```
-
-- Open **17091/udp** (game) and **443/tcp** (login / server list) on your firewall.
-- `docker compose stop` sends SIGTERM; the server saves every player and world before exiting (30 s grace period).
-- Staff actions are recorded in `logs/audit.log` (who ran which moderator / developer command, UTC).
-- The database starts empty on first boot. Make a backup routine for the `db_data` volume, e.g.
-  `docker compose exec db mariadb-dump -uroot -p"$DB_PASSWORD" --databases gurotopia > backup.sql`
-
-### Configuration without files
-
-| Variable | Meaning | Default |
-|---|---|---|
-| `GURO_DB_HOST` / `GURO_DB_PORT` | MariaDB address | `127.0.0.1` / `3306` |
-| `GURO_DB_USER` / `GURO_DB_PASSWORD` | MariaDB login | `root` / empty |
-| `GURO_SERVER_ADDR` | address players connect to | from `server_data.php` |
-| `GURO_PORT` | game port (udp) | `17091` |
-| `GURO_MAX_PEERS` | maximum connected players (1-1024) | `50` |
-
-Environment variables win over `mysql_login.txt` and `server_data.php`. If the database is not ready yet the
-server retries for about a minute before giving up with a clear error.
-
-### Before you go public
-
-- Never run with an empty database password. Create a dedicated MariaDB user instead of root if the database is shared.
-- `resources/ctx/server.key` is a private key stored in the repository. Generate your own certificate pair if the
-  server is exposed to the internet and your client build allows it.
-- Run `/reload content` after editing anything in `resources/`.
-
 ## New in this update
 
 - **Titles:** 12 titles instead of 37. The title keeps its own colour (Developer is black) and is no longer
