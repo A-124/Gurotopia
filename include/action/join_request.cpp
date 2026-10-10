@@ -133,6 +133,13 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
             )
         );
         world.visitors = others_here + 1; // @note real head count, not a drifting counter
+
+        // @note like the real game: tell visitors who owns a locked world
+        if (world.owner != 0)
+        {
+            const std::string owner_name = username_for_uid(world.owner);
+            on::ConsoleMessage(event.peer, std::format("`5[```w{}`` `$World Locked`` by {}`5]``", world.name, owner_name.empty() ? "unknown" : owner_name));
+        }
         on::SetClothing(*event.peer);
         on::CountryState(event);
 

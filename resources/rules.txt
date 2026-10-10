@@ -1,0 +1,6 @@
+# One rule per line, shown by /rules. Lines starting with # are ignored. Max 20 rules.
+Be respectful. No harassment, hate speech or spamming.
+No scamming other players in trades or vending machines.
+No cheating, exploiting bugs, or using bots/macros. Report bugs to the staff instead.
+Do not share your password with anyone, staff will never ask for it.
+Staff decisions are final. Use /mods to see who is online.

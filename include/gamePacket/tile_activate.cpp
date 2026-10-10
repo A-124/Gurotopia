@@ -26,6 +26,7 @@ void tile_activate(ENetEvent& event, ::gamePacket gamePacket)
 
     auto world = std::ranges::find(worlds, pPeer->recent_worlds.back(), &::world::name);
     if (world == worlds.end()) return;
+    if (!tile_in_bounds(gamePacket.punch.x, gamePacket.punch.y)) return; // @note forged coordinates would index blocks[] out of bounds
 
     ::block &block = world->blocks[cord(gamePacket.punch.x, gamePacket.punch.y)];
     const ::item &item = id_to_item(block.fg);
@@ -95,7 +96,9 @@ void tile_activate(ENetEvent& event, ::gamePacket gamePacket)
         }
         case type::CHECKPOINT:
         {
-            ::block &checkpoint = world->blocks[cord(pPeer->rest_pos.by_32(true).x, pPeer->rest_pos.by_32(true).y)]; // @note get previous checkpoint from respawn position
+            const ::pos previous_checkpoint = pPeer->rest_pos.by_32(true);
+            if (!tile_in_bounds(previous_checkpoint.x, previous_checkpoint.y)) break;
+            ::block &checkpoint = world->blocks[cord(previous_checkpoint.x, previous_checkpoint.y)]; // @note get previous checkpoint from respawn position
 
             checkpoint.state[2] &= ~S_TOGGLE;
             send_tile_update(event, ::gamePacket{.id = block.fg/*has to be 'block' or else iterfere with main door*/, .punch = pPeer->rest_pos.by_32(true)}, checkpoint, *world);

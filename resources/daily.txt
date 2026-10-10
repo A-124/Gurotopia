@@ -1,0 +1,23 @@
+# Daily reward configuration. Reload without restarting: /reload content
+#
+# SETTINGS
+#   setting|cooldown_hours|20        hours between claims (1-720). 20 = claimable roughly once a day
+#   setting|streak_window_hours|48   miss a claim for longer than this and the streak restarts at day 1
+#                                    (must be >= cooldown_hours)
+#
+# REWARD DAYS (the number of day lines is the length of the cycle, max 31; then it starts over)
+#   day|N|reward|note(optional)
+#   reward : comma list of gems:N, xp:N, item:ID:COUNT   e.g. gems:1000,xp:250,item:3402:1
+#   note   : short text shown under the reward in the /daily window (do not use the | character)
+#
+# Days are shown in order of N. Gaps are fine (1,2,3,10 is a 4-day cycle).
+setting|cooldown_hours|20
+setting|streak_window_hours|48
+
+day|1|gems:1000,xp:250
+day|2|gems:2000,xp:500
+day|3|gems:3000,xp:750
+day|4|gems:4000,xp:1000
+day|5|gems:5000,xp:1250
+day|6|gems:6000,xp:1500
+day|7|gems:7000,xp:1750,item:3402:1|Weekly bonus: Golden Booty Chest!

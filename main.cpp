@@ -11,6 +11,8 @@
 #include "include/database/database_config.hpp" // @note load_database_config(), gDatabase_config
 #include "include/automate/holiday.hpp" // @note holiday
 #include <csignal>
+#include <ctime>
+#include <cstdlib>
 #include "include/commands/event_manager.hpp" // @note event_manager_tick()
 #include "include/core/event_bus.hpp"
 #include "include/core/runtime_reload.hpp"
@@ -29,6 +31,8 @@ int main()
 #ifdef SIGHUP // @note unix
     std::signal(SIGHUP, signal_handler); // @note PuTTY, SSH problems
 #endif
+
+    std::srand(static_cast<unsigned>(std::time(nullptr))); // @note RandomRange() uses rand(); unseeded, every restart replayed the same drops
 
     mysql_library_init(0, NULL, NULL);
     enet_initialize();

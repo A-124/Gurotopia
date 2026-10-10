@@ -327,9 +327,10 @@ u_short peer::emplace(::slot slot)
 
 void peer::add_xp(ENetEvent &event, u_short value) 
 {
-    value = static_cast<u_short>(value * get_xp_multiplier());
+    // @note compute in u_int: a u_short cast overflowed once the multiplier pushed the amount past 65535 (e.g. Experience Potion during a 10x event)
+    const u_int gained = static_cast<u_int>(static_cast<float>(value) * get_xp_multiplier());
     u_int &lvl = this->level.front();
-    u_int &xp = this->level.back() += value; // @note factor the new xp amount
+    u_int &xp = this->level.back() += gained; // @note factor the new xp amount
 
     for (; lvl < 125; )
     {
@@ -346,11 +347,21 @@ void peer::add_xp(ENetEvent &event, u_short value)
         }
         if (lvl == 125) on::CountryState(event);
         send_varlist(event.peer, { "OnPlayerLeveledUp", lvl });
-        send_varlist(event.peer, { "OnParticleEffect", 46u, CL_Vec2f{1812.0f, 1724.0f}, 0.0f, 0.0f });
 
-        std::string message = std::format("{} is now level {}!", this->display_growid, lvl);
-        send_varlist(event.peer, { "OnTalkBubble", this->netid, message, 0u });
-        on::ConsoleMessage(event.peer, message);
+        // @note the effect used a hard-coded map coordinate (1812, 1724) instead of the player's position,
+        //       and only the leveling player saw anything. Everyone in the world now sees it on the player.
+        const std::string message = std::format("{} is now level {}!", this->display_growid, lvl);
+        const float at_x = this->pos.x, at_y = this->pos.y;
+        const int self_netid = this->netid;
+        const auto announce = [&](ENetPeer &p)
+        {
+            send_varlist(&p, { "OnParticleEffect", 46u, CL_Vec2f{at_x, at_y}, 0.0f, 0.0f });
+            send_varlist(&p, { "OnTalkBubble", self_netid, message, 0u });
+            on::ConsoleMessage(&p, message);
+        };
+        announce(*event.peer);
+        if (self_netid != 0 && !this->recent_worlds.back().empty())
+            peers(this->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer &p) { if (&p != event.peer) announce(p); });
     }
 
     this->save_progress();

@@ -158,6 +158,8 @@ public:
     int daily_streak{};
     u_short goals_unsaved{}; // @note progress events since the last save_goals()
 
+    int reply_uid{}; // @note user id of the last player who sent this peer a /msg (used by /r)
+
     bool banned{};
     u_int muted_until{}; // @note unix seconds; 0 = not muted
     void save_moderation();

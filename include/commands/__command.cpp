@@ -24,6 +24,7 @@
 #include "gameplay/content_commands.hpp"
 #include "gameplay/craft.hpp"
 #include "moderation.hpp"
+#include "social.hpp"
 
 /* emote commands all dispatch to on::Action. listed once here so the
  * cmd_pool registration and the /help text stay in sync automatically. */
@@ -80,7 +81,8 @@ auto help_return = [](ENetEvent& event, const std::string_view)
 
     // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
     std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
-        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily";
+        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily [claim] "
+        "/msg <player> <message> /r <message> /mods /rules /worldinfo /roll [sides]";
 
     for (std::string_view emote : emotes)
         player_commands += std::format(" /{}", emote);
@@ -151,6 +153,13 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"quest", &quests_command},
         {"achievements", &achievements_command},
         {"daily", &daily_command},
+        {"msg", &command_msg},
+        {"w", &command_msg},
+        {"r", &command_reply},
+        {"mods", &command_mods},
+        {"rules", &command_rules},
+        {"worldinfo", &command_worldinfo},
+        {"roll", &command_roll},
         {"1hit", developer_only(&command_onehit)}
     };
 

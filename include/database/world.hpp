@@ -57,7 +57,10 @@ struct block
 
     ::blob to_blob() const;
 };
-#define cord(x,y) (y * 100 + x)
+#define cord(x,y) ((y) * 100 + (x))
+
+/* @return true if (x, y) is a real tile (world is 100x60). NaN-safe, used to reject forged coordinates. */
+inline bool tile_in_bounds(float x, float y) noexcept { return x >= 0.0f && x < 100.0f && y >= 0.0f && y < 60.0f; }
 
 struct door 
 {

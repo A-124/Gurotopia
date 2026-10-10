@@ -61,6 +61,11 @@ void server_kick(ENetEvent &e,ENetPeer *c,::peer *p) {
  say(e,std::format("`2Kicked {} from the server.``",p->growid));
 }
 }
+std::string username_for_uid(int uid) {
+ if(uid<=0) return {};
+ for(auto *c:peers()) if(c&&c->data) { auto *p=static_cast<::peer*>(c->data); if(p->user_id==uid && !p->growid.empty()) return p->growid; }
+ return db ? name_for(uid) : std::string{};
+}
 bool is_world_banned(std::string_view world,int uid) {
  if(!db||world.empty()||uid<=0) return false; std::string name(world);
  ::hStmt s{"SELECT 1 FROM world_ban WHERE world_name=? AND uid=? LIMIT 1"}; MYSQL_BIND p[2]={make_bind_in(name),make_bind_in(uid)}; s.bind_param(p); s.execute();

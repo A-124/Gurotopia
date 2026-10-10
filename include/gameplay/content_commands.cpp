@@ -11,6 +11,7 @@
 #include "gameplay/goals.hpp"
 #include "database/peer.hpp"
 #include "gameplay/craft.hpp"
+#include "gameplay/daily_system.hpp"
 
 namespace {
 void open_dialog(ENetEvent& event, std::string body) {
@@ -27,6 +28,7 @@ void hub(ENetEvent& event) {
     d += "add_button|hub_quests|Quests - track objectives|noflags|0|0|\n";
     d += "add_button|hub_achievements|Achievements - long-term milestones|noflags|0|0|\n";
     d += "add_button|hub_craft|Crafting Workshop - recipes and quantities|noflags|0|0|\n";
+    d += "add_button|hub_daily|Daily Rewards - login streak|noflags|0|0|\n";
     if (p->role == DEVELOPER) d += "add_button|hub_content|Content Manager - validate and reload|noflags|0|0|\n";
     d += std::format("add_spacer|small|\nadd_smalltext|Quests: {}   Achievements: {}   Recipes: {}|left|\nend_dialog|gurotopia_hub|Close|Open|\nadd_quick_exit|\n", quest_system::all().size(), achievement_system::all().size(), custom_content::recipe_count());
     open_dialog(event, std::move(d));
@@ -115,6 +117,7 @@ void handle_content_dialog_return(ENetEvent& event, const ::hPipe& pipe) {
     if (button == "hub_quests") { goals_dialog(event, false); return; }
     if (button == "hub_achievements") { goals_dialog(event, true); return; }
     if (button == "hub_craft") { craft_dialog(event); return; }
+    if (button == "hub_daily") { daily_system::show(event); return; }
     if (button == "hub_content") { content_dialog(event); return; }
     if (button == "hub_back") { hub(event); return; }
     if (button == "content_validate") {
@@ -131,38 +134,4 @@ void handle_content_dialog_return(ENetEvent& event, const ::hPipe& pipe) {
     }
 }
 
-void daily_command(ENetEvent& event, const std::string_view)
-{
-    ::peer *pPeer = event.peer ? static_cast<::peer*>(event.peer->data) : nullptr;
-    if (!pPeer) return;
-
-    constexpr u_int cooldown = 20u * 3600u;   // @note claimable roughly once a day
-    constexpr u_int streak_window = 48u * 3600u; // @note miss two days and the streak restarts
-    const u_int now = static_cast<u_int>(std::time(nullptr));
-
-    if (pPeer->last_daily != 0 && now >= pPeer->last_daily && now - pPeer->last_daily < cooldown)
-    {
-        const u_int left = cooldown - (now - pPeer->last_daily);
-        on::ConsoleMessage(event.peer, std::format("`4Daily reward already claimed.`` Come back in `w{}h {}m``. Current streak: `w{}`` day(s).",
-            left / 3600u, (left % 3600u) / 60u, pPeer->daily_streak));
-        return;
-    }
-
-    if (pPeer->last_daily == 0 || now < pPeer->last_daily || now - pPeer->last_daily > streak_window) pPeer->daily_streak = 1;
-    else ++pPeer->daily_streak;
-    pPeer->last_daily = now;
-
-    const int day = (pPeer->daily_streak - 1) % 7 + 1; // @note 1..7, then the cycle starts again
-    goals::reward prize{};
-    prize.gems = 1000 * day;
-    prize.xp = 250 * day;
-    if (day == 7) prize.items.emplace_back(3402/*Golden Booty Chest*/, 1);
-
-    const std::string given = goals::grant(event.peer, prize);
-    pPeer->save_goals();
-
-    on::ConsoleMessage(event.peer, std::format("`2Daily reward claimed!`` Day `w{}`` of your streak ({}/7 this week): `2{}``",
-        pPeer->daily_streak, day, given));
-    if (pPeer->netid != 0)
-        send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, std::format("`2Daily reward! Streak: {}``", pPeer->daily_streak), 0u, 1u });
-}
+void daily_command(ENetEvent& event, const std::string_view text) { daily_system::command(event, text); }

@@ -16,6 +16,7 @@
 #include "commands/event_manager.hpp"
 #include "database/custom_content.hpp"
 #include "core/event_bus.hpp"
+#include "commands/moderation.hpp" // @note username_for_uid()
 
 #include "tile_change.hpp"
 
@@ -28,6 +29,17 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
     {
         auto world = std::ranges::find(worlds, pPeer->recent_worlds.back(), &::world::name);
         if (world == worlds.end()) return;
+
+        // @note a modified client can send any tile; indexing blocks[] with it would read/write out of bounds and crash the server.
+        if (!tile_in_bounds(gamePacket.punch.x, gamePacket.punch.y)) return;
+
+        // @note placing / using an item requires actually owning it (id 18 = fist, 32 = wrench). Without this a modified client places unlimited free blocks.
+        if (gamePacket.id != 18 && gamePacket.id != 32)
+        {
+            if (gamePacket.id <= 0 || gamePacket.id > 32767) return;
+            const auto owned = std::ranges::find(pPeer->slots, static_cast<short>(gamePacket.id), &::slot::id);
+            if (owned == pPeer->slots.end() || owned->count <= 0) return;
+        }
 
         ::block &block = world->blocks[cord(gamePacket.punch.x, gamePacket.punch.y)];
 
@@ -133,10 +145,11 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     const char color = (number == 0) ? '2' :
                         (std::ranges::find(red_numbers, number) != red_numbers.end()) ? '4' : 'b';
                     const std::string message = std::format("[{} spun the wheel and got `{}{}``!]", pPeer->display_growid, color, number);
-                    peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&event, &pPeer, message](ENetPeer& peer)
+                    peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&pPeer, message](ENetPeer& peer)
                     {
-                        send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, message }, -1, 2000);
-                        on::ConsoleMessage(event.peer, message, 2000);
+                        // @note was send_varlist(event.peer, ...): the spinner got one copy per player and nobody else saw the result.
+                        send_varlist(&peer, { "OnTalkBubble", pPeer->netid, message }, -1, 2000);
+                        on::ConsoleMessage(&peer, message, 2000);
                     });
                     break;
                 }
@@ -152,7 +165,10 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     if (is_tile_lock(item.id)) break; // @todo seperate area for 'range_lock'
 
                     if (world->owner != pPeer->user_id)
-                        throw std::runtime_error(std::format("`5[```w{}`` `$World Locked`` by (null)`5]``", world->name)); // @todo add owner name
+                    {
+                        const std::string owner_name = username_for_uid(world->owner);
+                        throw std::runtime_error(std::format("`5[```w{}`` `$World Locked`` by {}`5]``", world->name, owner_name.empty() ? "unknown" : owner_name));
+                    }
                     break;
                 }
                 case type::VENDING_MACHINE:

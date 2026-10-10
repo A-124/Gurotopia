@@ -15,6 +15,7 @@
 #include "megaphone.hpp"
 #include "commands/admin.hpp"
 #include "gameplay/content_commands.hpp"
+#include "gameplay/daily_system.hpp"
 
 #include "__dialog_return.hpp"
 
@@ -45,5 +46,6 @@ std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)
     {"gurotopia_quests", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_achievements", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_craft", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"gurotopia_daily", std::bind(&daily_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_content", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
 };
