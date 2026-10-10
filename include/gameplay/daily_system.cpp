@@ -5,7 +5,9 @@
 #include <map>
 #include <sstream>
 #include "onVariant/ConsoleMessage.hpp"
+#include "onVariant/AddNotification.hpp"
 #include "daily_system.hpp"
+#include "gameplay/title_system.hpp"
 
 namespace daily_system {
 namespace {
@@ -168,9 +170,11 @@ bool claim(ENetEvent &event)
     const day_reward &today = active.days[static_cast<std::size_t>(s.next_day - 1)];
     const std::string given = goals::grant(event.peer, today.prize);
     pPeer->save_goals();
+    title_system::refresh(event.peer); // @note streak titles
 
     on::ConsoleMessage(event.peer, std::format("`2Daily reward claimed!`` Day `w{}`` of your streak ({}/{} this cycle): `2{}``",
         pPeer->daily_streak, s.next_day, cycle, given));
+    on::AddNotification(event.peer, std::format("`2Daily reward claimed!`` Streak: `w{}``", pPeer->daily_streak), "audio/cash_register.wav");
     if (pPeer->netid != 0)
         send_varlist(event.peer, { "OnTalkBubble", pPeer->netid, std::format("`2Daily reward! Streak: {}``", pPeer->daily_streak), 0u, 1u });
     return true;

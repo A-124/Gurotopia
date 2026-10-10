@@ -6,6 +6,7 @@ public:
     std::string host{"127.0.0.1"};
     std::string user{"root"};
     std::string passwd{};
+    unsigned port{ 3306u };
 
     void init();
 };

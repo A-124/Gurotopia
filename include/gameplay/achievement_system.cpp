@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include <fstream>
 #include "gameplay/achievement_system.hpp"
+#include "gameplay/title_system.hpp"
 
 namespace achievement_system {
 namespace { std::unordered_map<int, achievement> achievements; }
@@ -41,6 +42,7 @@ void on_event(const event_bus::event& event)
 
     for (const achievement *done : result.completed) goals::announce(peer, *done, "Achievement");
     if (!result.completed.empty() || ++pPeer->goals_unsaved >= 25) pPeer->save_goals();
+    if (!result.completed.empty()) title_system::refresh(peer); // @note achievements unlock titles
 }
 
 const std::unordered_map<int, achievement>& all() noexcept { return achievements; }

@@ -25,6 +25,12 @@
 #include "gameplay/craft.hpp"
 #include "moderation.hpp"
 #include "social.hpp"
+#include "help.hpp"
+#include "leaderboard.hpp"
+#include "title_commands.hpp"
+#include "extras.hpp"
+#include "gameplay/welcome_system.hpp"
+#include "staff_tools.hpp"
 
 /* emote commands all dispatch to on::Action. listed once here so the
  * cmd_pool registration and the /help text stay in sync automatically. */
@@ -36,9 +42,9 @@ static constexpr std::string_view emotes[24]{
 };
 
 /* Commands that require an argument are rejected before dispatch when omitted. */
-std::array<std::string_view, 13> cmd_requires_arg{
+std::array<std::string_view, 16> cmd_requires_arg{
     "sb", "warp", "punch", "skin", "me", "weather", "setrole", "resetallworld",
-    "setlevel", "kick", "ban", "unban", "pull"
+    "setlevel", "kick", "ban", "unban", "pull", "mute", "unmute", "pinfo"
 };
 
 /* Keep permission checks at dispatch time so hidden commands cannot be invoked directly. */
@@ -81,8 +87,8 @@ auto help_return = [](ENetEvent& event, const std::string_view)
 
     // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
     std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
-        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily [claim] "
-        "/msg <player> <message> /r <message> /mods /rules /worldinfo /roll [sides]";
+        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily [claim] /titles /leaderboard /playtime /notebook "
+        "/msg <player> <message> /r <message> /mods /rules /worldinfo /roll [sides] /flip /ping /uptime /count /status /welcome";
 
     for (std::string_view emote : emotes)
         player_commands += std::format(" /{}", emote);
@@ -94,7 +100,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
     {
         send_action(*event.peer, "log", "msg|>> `cModerator Cmd:");
         send_action(*event.peer, "log",
-            "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID>");
+            "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID> /mute <player> [minutes] /unmute <player> /pinfo <player> /nick <name> /default");
     }
 
     if (pPeer->role == DEVELOPER)
@@ -102,7 +108,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
         send_action(*event.peer, "log", "msg|>> `bDeveloper Cmd:");
         send_action(*event.peer, "log",
             "msg|/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
-            "/setrole <UID> <role> /setlevel <player|UID> <level> "
+            "/setrole <UID> <role> /setlevel <player|UID> <level> /givetitle <player|me> <id> "
             "/on /online /weather <id> /ghost /punch <id> /content [/validate] /contentui /1hit "
             "/reload <items|content|store|holiday|all> "
             "/startmultiplier <gem> <xp> <seconds> /stopmultiplier");
@@ -113,7 +119,7 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
 {
     std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::string_view)>> pool
     {
-        {"help", help_return },
+        {"help", &command_help },
         {"?", help_return },
         {"admin", &admin},
         {"maint", &maint},
@@ -153,6 +159,14 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"quest", &quests_command},
         {"achievements", &achievements_command},
         {"daily", &daily_command},
+        {"titles", &command_titles},
+        {"title", &command_titles},
+        {"givetitle", developer_only(&command_givetitle)},
+        {"leaderboard", &command_leaderboard},
+        {"lb", &command_leaderboard},
+        {"top", &command_leaderboard},
+        {"playtime", &command_playtime},
+        {"notebook", &command_notebook},
         {"msg", &command_msg},
         {"w", &command_msg},
         {"r", &command_reply},
@@ -160,6 +174,17 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"rules", &command_rules},
         {"worldinfo", &command_worldinfo},
         {"roll", &command_roll},
+        {"flip", &command_flip},
+        {"ping", &command_ping},
+        {"uptime", &command_uptime},
+        {"count", &command_count},
+        {"mute", &command_mute},
+        {"unmute", &command_unmute},
+        {"pinfo", &command_pinfo},
+        {"nick", &command_nick},
+        {"default", &command_default},
+        {"status", &command_status},
+        {"welcome", &welcome_system::command},
         {"1hit", developer_only(&command_onehit)}
     };
 

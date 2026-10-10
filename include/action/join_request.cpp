@@ -99,9 +99,9 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
             
             if (pOthers->user_id != pPeer->user_id)
             {
-                on::Spawn(*event.peer, pOthers->netid, pOthers->user_id, pOthers->pos, pOthers->display_growid, pOthers->country, pOthers->role, pOthers->role >= DEVELOPER, false);
+                on::Spawn(*event.peer, pOthers->netid, pOthers->user_id, pOthers->pos, pOthers->nametag(), pOthers->country, pOthers->role, pOthers->role >= DEVELOPER, false);
                 on::SetClothing(*event.peer, *pOthers);
-                on::Spawn(peer, pPeer->netid, pPeer->user_id, pPeer->rest_pos, pPeer->display_growid, pPeer->country, pPeer->role, pPeer->role >= DEVELOPER, false);
+                on::Spawn(peer, pPeer->netid, pPeer->user_id, pPeer->rest_pos, pPeer->nametag(), pPeer->country, pPeer->role, pPeer->role >= DEVELOPER, false);
                 on::SetClothing(peer, *pPeer);
                 on::ConsoleMessage(&peer, std::format("`5<{} entered, `w{}`` others here>``", pPeer->display_growid, others_here));
             }
@@ -117,7 +117,7 @@ void action::join_request(ENetEvent& event, const std::string& header, const std
                 });
             }
         } // @note roster loop: joiner learns every existing peer, each existing peer learns the joiner
-        on::Spawn(*event.peer, pPeer->netid, pPeer->user_id, pPeer->rest_pos, pPeer->display_growid, pPeer->country, pPeer->role, pPeer->role >= DEVELOPER, true);
+        on::Spawn(*event.peer, pPeer->netid, pPeer->user_id, pPeer->rest_pos, pPeer->nametag(), pPeer->country, pPeer->role, pPeer->role >= DEVELOPER, true);
 
         if (pPeer->billboard.id != 0) on::BillboardChange(event); // @note don't waste memory if billboard is empty.
 

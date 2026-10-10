@@ -16,6 +16,11 @@
 #include "commands/admin.hpp"
 #include "gameplay/content_commands.hpp"
 #include "gameplay/daily_system.hpp"
+#include "gameplay/title_system.hpp"
+#include "gameplay/profile_system.hpp"
+#include "commands/leaderboard.hpp"
+#include "commands/help.hpp"
+#include "gameplay/welcome_system.hpp"
 
 #include "__dialog_return.hpp"
 
@@ -47,5 +52,10 @@ std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)
     {"gurotopia_achievements", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_craft", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_daily", std::bind(&daily_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"title_menu", std::bind(&title_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"profile_menu", std::bind(&profile_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"gurotopia_leaderboard", std::bind(&leaderboard_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"gurotopia_help", std::bind(&help_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"welcome_menu", std::bind(&welcome_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_content", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
 };

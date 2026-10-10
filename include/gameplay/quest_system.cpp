@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include <fstream>
 #include "gameplay/quest_system.hpp"
+#include "gameplay/title_system.hpp"
 
 namespace quest_system {
 namespace { std::unordered_map<int, quest> quests; }
@@ -41,6 +42,7 @@ void on_event(const event_bus::event& event)
 
     for (const quest *done : result.completed) goals::announce(peer, *done, "Quest");
     if (!result.completed.empty() || ++pPeer->goals_unsaved >= 25) pPeer->save_goals();
+    if (!result.completed.empty()) title_system::refresh(peer); // @note quests unlock titles
 }
 
 const std::unordered_map<int, quest>& all() noexcept { return quests; }

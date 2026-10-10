@@ -1,4 +1,6 @@
 #include "pch.hpp"
+#include <chrono>
+#include <cstdlib>
 
 #include "database.hpp"
 #include "database_config.hpp"
@@ -103,6 +105,12 @@ void create_table_if_not_exist()
     ensure_column("peer", "banned", "INT NOT NULL DEFAULT 0");
     ensure_column("peer", "goals", "BLOB NULL");
     ensure_column("peer", "muted_until", "INT UNSIGNED NOT NULL DEFAULT 0");
+    ensure_column("peer", "title_active", "INT NOT NULL DEFAULT 0");
+    ensure_column("peer", "title_enabled", "INT NOT NULL DEFAULT 1");
+    ensure_column("peer", "titles_unlocked", "VARCHAR(900) NULL");
+    ensure_column("peer", "playtime", "INT UNSIGNED NOT NULL DEFAULT 0");
+    ensure_column("peer", "bio", "VARCHAR(200) NULL");
+    ensure_column("peer", "notebook", "VARCHAR(900) NULL");
     ensure_column("world", "minimum_entry_level", "TINYINT UNSIGNED NOT NULL DEFAULT 1");
     ensure_column("world", "access", "BLOB NULL");
     ensure_column("world", "provider_cooldowns", "BLOB NULL");
@@ -115,13 +123,29 @@ void create_table_if_not_exist()
 
 void mysql_connect()
 {
-    db = mysql_init(NULL);
-
-    if (mysql_real_connect(db, gDb_config.host.c_str(), gDb_config.user.c_str(), gDb_config.passwd.c_str(), NULL, 3306u, NULL, 0ul) == NULL) 
+    // @note the database container often starts a few seconds after the game server: retry instead of crashing on a null connection
+    constexpr int attempts = 30;
+    for (int attempt = 1; ; ++attempt)
     {
-        std::fprintf(stderr, "[MariaDB] %s\n", mysql_error(db));
+        db = mysql_init(NULL);
+        const bool reconnect = true; // @note MariaDB drops idle connections ("server has gone away"); let the client library reconnect
+        mysql_options(db, MYSQL_OPT_RECONNECT, &reconnect);
+
+        if (mysql_real_connect(db, gDb_config.host.c_str(), gDb_config.user.c_str(), gDb_config.passwd.c_str(), NULL, gDb_config.port, NULL, 0ul) != NULL)
+        {
+            std::printf("connected to MariaDB server on %s:%u\n", gDb_config.host.c_str(), gDb_config.port);
+            break;
+        }
+        std::fprintf(stderr, "[MariaDB] %s (attempt %d/%d)\n", mysql_error(db), attempt, attempts);
+        mysql_close(db);
+        db = nullptr;
+        if (attempt >= attempts)
+        {
+            std::fprintf(stderr, "[MariaDB] giving up. check mysql_login.txt or the GURO_DB_* environment variables.\n");
+            std::exit(EXIT_FAILURE);
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(2));
     }
-    else printf("connected to MariaDB server on %s:%d\n", db->host, db->port);
 
     mysql_query(db, "CREATE DATABASE IF NOT EXISTS gurotopia");
     mysql_select_db(db, "gurotopia");

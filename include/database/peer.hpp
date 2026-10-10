@@ -82,6 +82,8 @@ public:
     void save_progress();
     void save_clothing();
     void save_goals(); // @note quest / achievement progress and daily reward
+    void save_titles(); // @note unlocked titles, equipped title and the on/off switch
+    void save_profile(); // @note play time, bio and notebook
 
     bool exists(const std::string &growid);
 
@@ -157,6 +159,21 @@ public:
     u_int last_daily{}; // @note unix seconds of the last /daily claim
     int daily_streak{};
     u_short goals_unsaved{}; // @note progress events since the last save_goals()
+
+    /* titles (see gameplay/title_system.hpp) */
+    std::unordered_set<int> titles_unlocked{}; // @note every title this peer has ever earned. never shrinks.
+    int title_active{};      // @note equipped title id, 0 = none
+    bool title_enabled{ true }; // @note master switch: false hides the title on the name tag without forgetting the choice
+    /* @return the name shown above the player's head: "`2[Builder]`` name" (title only when enabled) */
+    std::string nametag() const;
+    std::string nick{}; // @note session-only name set by staff with /nick, empty = real name
+
+    /* profile */
+    u_int playtime{}; // @note seconds played before this session (saved)
+    std::time_t session_start{}; // @note when this peer logged in
+    u_int total_playtime() const; // @return saved play time + the current session, in seconds
+    std::string bio{};      // @note short "about me" line, shown on the wrench menu
+    std::string notebook{}; // @note private notes (wrench > Notebook)
 
     int reply_uid{}; // @note user id of the last player who sent this peer a /msg (used by /r)
 

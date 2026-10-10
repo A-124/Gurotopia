@@ -21,9 +21,17 @@ void on::RequestWorldSelectMenu(ENetEvent& event)
         return result;
     };
 
-    std::vector<std::string> popular_names{};
+    // @note Top Worlds: busiest first, only the top 10 (was every world with a player, in creation order)
+    std::vector<const ::world*> busy{};
     for (const ::world &world : worlds)
-        if (world.visitors > 0) popular_names.emplace_back(world.name); // @todo only fetch top 10 worlds, instead of all the worlds with people.
+        if (world.visitors > 0) busy.push_back(&world);
+    std::ranges::stable_sort(busy, [](const ::world *l, const ::world *r) { return l->visitors > r->visitors; });
+    if (busy.size() > 10) busy.resize(10);
+    std::vector<std::string> popular_names{};
+    for (const ::world *world : busy) popular_names.emplace_back(world->name);
+
+    // @note recently visited: newest first, like the real game (the array stores the newest at the back)
+    std::vector<std::string> recent_names(pPeer->recent_worlds.rbegin(), pPeer->recent_worlds.rend());
 
     send_varlist(event.peer, { 
         "OnRequestWorldSelectMenu", 
@@ -35,7 +43,7 @@ void on::RequestWorldSelectMenu(ENetEvent& event)
             "add_floater|wotd_world|\u013B WOTD|0|0.5|3529161471\n", 
             section(popular_names, "3529161471"), 
             section(pPeer->my_worlds, "2147418367"), 
-            section(pPeer->recent_worlds, "3417414143")
+            section(recent_names, "3417414143")
         ), 
         1
     });

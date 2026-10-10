@@ -9,9 +9,11 @@
 #include "onVariant/SetClothing.hpp"
 #include "onVariant/CountryState.hpp"
 #include "onVariant/ConsoleMessage.hpp"
+#include "onVariant/AddNotification.hpp"
 #include "commands/punch.hpp"
 #include "tools/string.hpp"
 #include "commands/event_manager.hpp"
+#include "gameplay/title_system.hpp"
 
 #include "peer.hpp"
 
@@ -107,6 +109,27 @@ void peer::mysql_select_all()
     this->hair_color = this->mysql_select<unsigned>("hair_color");
     this->banned = this->mysql_select<unsigned>("banned") != 0;
     this->muted_until = this->mysql_select<unsigned>("muted_until");
+
+    // @note titles + profile
+    this->title_active = this->mysql_select<signed>("title_active");
+    this->title_enabled = this->mysql_select<signed>("title_enabled") != 0;
+    this->titles_unlocked.clear();
+    {
+        const std::string saved = this->mysql_select<std::string>("titles_unlocked");
+        std::size_t at = 0;
+        while (at < saved.size())
+        {
+            std::size_t end = saved.find(',', at);
+            if (end == std::string::npos) end = saved.size();
+            const int id = std::atoi(saved.substr(at, end - at).c_str());
+            if (id > 0) this->titles_unlocked.insert(id);
+            at = end + 1;
+        }
+    }
+    this->playtime = this->mysql_select<unsigned>("playtime");
+    this->bio = this->mysql_select<std::string>("bio");
+    this->notebook = this->mysql_select<std::string>("notebook");
+    this->session_start = std::time(nullptr);
     this->update_effects();
     auto blob = this->mysql_select<std::vector<u_char>>("inventory");
     const u_char *u8 = blob.data();
@@ -280,6 +303,58 @@ void peer::save_goals()
     this->goals_unsaved = 0;
 }
 
+void peer::save_titles()
+{
+    std::string joined;
+    for (int id : this->titles_unlocked)
+    {
+        if (!joined.empty()) joined += ',';
+        joined += std::to_string(id);
+    }
+    if (joined.size() > 880) joined.resize(joined.rfind(',', 880)); // @note column is VARCHAR(900), never overflow it
+    this->mysql_update<signed>("title_active", this->title_active);
+    this->mysql_update<signed>("title_enabled", this->title_enabled ? 1 : 0);
+    this->mysql_update<std::string>("titles_unlocked", joined);
+}
+
+u_int peer::total_playtime() const
+{
+    if (this->session_start <= 0) return this->playtime;
+    const std::time_t now = std::time(nullptr);
+    return this->playtime + static_cast<u_int>(std::max<std::time_t>(0, now - this->session_start));
+}
+
+void peer::save_profile()
+{
+    // @note bank the current session so a later save does not count it twice
+    const std::time_t now = std::time(nullptr);
+    if (this->session_start > 0)
+    {
+        this->playtime += static_cast<u_int>(std::max<std::time_t>(0, now - this->session_start));
+        this->session_start = now;
+    }
+    this->mysql_update<unsigned>("playtime", this->playtime);
+    this->mysql_update<std::string>("bio", this->bio);
+    this->mysql_update<std::string>("notebook", this->notebook);
+}
+
+std::string peer::nametag() const
+{
+    std::string shown = this->display_growid;
+    if (!this->nick.empty()) // @note staff /nick: keep the role colour so the name still looks official
+        shown = this->role == DEVELOPER ? std::format("`6{}``", this->nick)
+              : this->role == MODERATOR ? std::format("`c{}``", this->nick) : this->nick;
+
+    const std::string tag = this->title_enabled ? title_system::tag(*this) : std::string{};
+    if (tag.empty()) return shown;
+
+    // @note the client recolours a plain name with its own base colour (level 125 players get cyan) and also
+    //       after every "``" reset. With a title worn every part gets an explicit colour, so the title keeps
+    //       its own colour (Developer stays black) and the name keeps its role colour (white for players).
+    const bool coloured = !shown.empty() && shown.front() == '`';
+    return tag + (coloured ? shown : std::format("`w{}``", shown));
+}
+
 void peer::save_moderation()
 {
     this->mysql_update<signed>("banned", this->banned ? 1 : 0);
@@ -294,6 +369,8 @@ peer::~peer()
         this->save_progress();
         this->save_clothing();
         this->save_goals();
+        this->save_titles();
+        this->save_profile();
     }
 }
 
@@ -330,6 +407,7 @@ void peer::add_xp(ENetEvent &event, u_short value)
     // @note compute in u_int: a u_short cast overflowed once the multiplier pushed the amount past 65535 (e.g. Experience Potion during a 10x event)
     const u_int gained = static_cast<u_int>(static_cast<float>(value) * get_xp_multiplier());
     u_int &lvl = this->level.front();
+    const u_int level_before = lvl;
     u_int &xp = this->level.back() += gained; // @note factor the new xp amount
 
     for (; lvl < 125; )
@@ -360,9 +438,11 @@ void peer::add_xp(ENetEvent &event, u_short value)
             on::ConsoleMessage(&p, message);
         };
         announce(*event.peer);
+        on::AddNotification(event.peer, std::format("`2Level up!`` You are now level `w{}``", lvl), "audio/levelup2.wav");
         if (self_netid != 0 && !this->recent_worlds.back().empty())
             peers(this->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer &p) { if (&p != event.peer) announce(p); });
     }
+    if (lvl != level_before) title_system::refresh(event.peer); // @note a new level may unlock new titles
 
     this->save_progress();
 }

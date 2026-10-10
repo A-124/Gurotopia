@@ -2,6 +2,7 @@
 #include "commands/__command.hpp"
 #include "onVariant/ConsoleMessage.hpp"
 #include "tools/time.hpp"
+#include "core/audit.hpp"
 #include "input.hpp"
 
 #include <ctime>
@@ -51,7 +52,11 @@ void action::input(ENetEvent& event, const std::string& header)
             {
                 send_action(*event.peer, "log", "msg|`4Unknown command.`` Enter `$/?`` for a list of valid commands.");
             }
-            else it->second(std::ref(event), std::move(text.substr(1)/* remove the '/' */));
+            else
+            {
+                if (pPeer->role >= MODERATOR) audit::log(*pPeer, std::string_view{ text }.substr(1)); // @note every staff command is recorded
+                it->second(std::ref(event), std::move(text.substr(1)/* remove the '/' */));
+            }
         }
         else 
         {

@@ -1,0 +1,31 @@
+# Titles. Shown in the wrench menu (Title button) and in front of the player's name tag.
+# Reload with /reload content (no restart needed). A title deleted from this file disappears from every player's list.
+#
+# id|name|color|requirement|description
+#
+# color       : Growtopia colour code letter (the whole [Title] is drawn in this colour, so it is not recoloured by the client's level 125 name colour)
+#               colours: (2 green, 3 cyan, 4 red, 5 purple, 6 gold, 8 orange, 9 blue, b BLACK, c light blue, e pink, p light pink, w white, # bright cyan)
+# requirement : none                      always unlocked
+#               level:N                   reach level N
+#               achievement:ID            complete one achievement (resources/achievements.txt)
+#               achievements:N            complete N achievements in total
+#               quest:ID                  complete one quest (resources/quests.txt)
+#               quests:N                  complete N quests in total
+#               playtime:H                play for H hours
+#               age:D                     account is D days old
+#               streak:N                  reach a daily reward streak of N
+#               fires:N                   put out N fires
+#               role:N                    be a Moderator (1) or Developer (2)
+#               granted                   only given by a developer with /givetitle
+1|Newbie|2|none|Everyone starts somewhere. Welcome!
+5|Veteran|5|level:50|Reach level 50.
+7|Legend|e|level:100|Reach level 100.
+8|Maxed Out|#|level:125|Reach the maximum level, 125.
+11|Landlord|8|achievement:3|Own a world.
+17|Block Legend|6|achievement:9|Break 50000 blocks.
+20|Completionist|3|achievements:9|Complete every achievement.
+22|Quest Master|9|quests:8|Complete 8 quests.
+24|Devoted|c|streak:7|Reach a 7 day daily streak.
+33|Moderator|c|role:1|Server moderator.
+34|Developer|b|role:2|Server developer.
+35|Founder|e|granted|Early supporter of the server.

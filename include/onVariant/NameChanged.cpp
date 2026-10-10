@@ -7,6 +7,6 @@ void on::NameChanged(ENetEvent& event)
 
     send_varlist(event.peer, {
         "OnNameChanged",
-        std::format("{}", pPeer->display_growid)
+        pPeer->nametag()
     }, pPeer->netid);
 }

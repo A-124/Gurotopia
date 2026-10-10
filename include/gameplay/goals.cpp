@@ -4,6 +4,7 @@
 #include <sstream>
 #include "onVariant/SetBux.hpp"
 #include "onVariant/ConsoleMessage.hpp"
+#include "onVariant/AddNotification.hpp"
 #include "goals.hpp"
 
 namespace goals {
@@ -157,9 +158,10 @@ void announce(ENetPeer *peer, const goal &g, std::string_view label)
     const ::peer *pPeer = static_cast<::peer*>(peer->data);
 
     const std::string given = grant(peer, g.prize);
-    const std::string text = std::format("`2{} complete: ``w{}``{}", label, g.name,
+    const std::string text = std::format("`2{} complete: `w{}``{}", label, g.name,
         given.empty() ? "" : std::format(" `o- reward: `2{}``", given));
     on::ConsoleMessage(peer, text);
+    on::AddNotification(peer, std::format("`2{} complete!`` `w{}``", label, g.name), "audio/cash_register.wav");
     if (pPeer->netid != 0) send_varlist(peer, { "OnTalkBubble", pPeer->netid, std::format("`2{} complete!`` `w{}``", label, g.name), 0u, 1u });
 }
 

@@ -1,7 +1,10 @@
 #include "pch.hpp"
 #include "tools/create_dialog.hpp"
 #include "wrench.hpp"
+#include "tools/ui.hpp"
 #include "gameplay/achievement_system.hpp"
+#include "gameplay/profile_system.hpp"
+#include "gameplay/title_system.hpp"
 
 void action::wrench(ENetEvent& event, const std::string& header) 
 {
@@ -60,7 +63,12 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             .add_textbox("Surgeon Level: 0")
                             .add_spacer("small")
                             .add_textbox("`wActive effects:``")
-                            /* @todo handle peer's effects */
+                            .add_smalltext(profile_system::effects_text(*pOthers))
+                            .add_spacer("small")
+                            .add_textbox(std::format("`wTitle: ``{}", (pOthers->title_active > 0 && pOthers->titles_unlocked.contains(pOthers->title_active) && title_system::find(pOthers->title_active))
+                                ? std::format("`{}{}`` `o({})``", title_system::find(pOthers->title_active)->color, title_system::find(pOthers->title_active)->name, pOthers->title_enabled ? "shown" : "hidden")
+                                : std::string{"`onone``"}))
+                            .add_textbox(std::format("`wTitles unlocked: ``{}/{}", title_system::owned_count(*pOthers), title_system::all().size()))
                             .add_spacer("small")
                             .add_smalltext(std::format("Fires Put Out: {}", pOthers->fires_removed))
                             .add_spacer("small")
@@ -70,7 +78,8 @@ void action::wrench(ENetEvent& event, const std::string& header)
                                                      peers(pOthers->recent_worlds.back(), PEER_SAME_WORLD).size()))
                             .add_textbox("`oYou are standing on the note \"A\".``")
                             .add_spacer("small")
-                            .add_textbox("`oTotal time played is `w0.0`` hours.  This account was created `w0`` days ago.``")
+                            .add_textbox(std::format("`oTotal time played is `w{}``.  This account was created `w{}`` ago.``", profile_system::playtime_text(*pOthers), profile_system::account_age_text(*pOthers)))
+                            .add_textbox(std::format("`wAbout me: ``{}", pOthers->bio.empty() ? std::string{"`o(not set - wrench yourself > Personalize Profile)``"} : ui::sanitize(pOthers->bio, 80)))
                             .add_spacer("small")
                             .add_quick_exit()
                             .end_dialog("popup", "", "Continue")
@@ -95,6 +104,11 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             .add_label("small", std::format("`1Achievements:`` {}/{}", 
                                 std::min(pOthers->achievements_done.size(), achievement_system::all().size()),
                                 achievement_system::all().size()))
+                            .add_spacer("small")
+                            .add_label("small", std::format("`1Title:`` {}", (pOthers->title_enabled && !title_system::tag(*pOthers).empty()) ? title_system::tag(*pOthers) : std::string{"none"}))
+                            .add_smalltext(pOthers->bio.empty() ? std::string{"`oNo profile line set.``"} : std::format("`o{}``", ui::sanitize(pOthers->bio, 80)))
+                            .add_spacer("small")
+                            .add_label("small", std::format("`1Play time:`` {}", profile_system::playtime_text(*pOthers)))
                             .add_spacer("small")
                             .add_label("small", std::format("`1Account Age:`` {} days",
                                 pOthers->created_at > 0

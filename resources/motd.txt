@@ -1,0 +1,3 @@
+# Message of the day. Shown in the console of every player when they log in (max 5 lines, colour codes allowed).
+# Lines starting with # are ignored. Edit and relog to see it, no restart needed.
+`2Welcome to Gurotopia!`` `oType `w/help`` for commands, `w/daily`` for your reward and `w/titles`` for your titles.

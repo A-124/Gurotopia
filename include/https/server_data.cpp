@@ -1,4 +1,5 @@
 #include "pch.hpp"
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 
@@ -34,17 +35,31 @@ void ::server_data::init()
             pipes.insert(pipes.end(), pipe_pair.begin(), pipe_pair.end());
         }
 
-        this->server = pipes[1];
-        this->port = std::stoi(pipes[3]);
-        this->type = std::stoi(pipes[5]);
-        this->type2 = std::stoi(pipes[7]);
-        this->maint = pipes[9];
-        this->loginurl = pipes[11];
-        this->meta = pipes[13];
+        // @note a damaged server_data.php must not crash the server with an out of range index
+        if (pipes.size() < 14) std::fprintf(stderr, "[server_data.php] incomplete, using defaults. delete the file to regenerate it.\n");
+        else try
+        {
+            this->server = pipes[1];
+            this->port = static_cast<u_short>(std::stoi(pipes[3]));
+            this->type = static_cast<u_char>(std::stoi(pipes[5]));
+            this->type2 = static_cast<u_char>(std::stoi(pipes[7]));
+            this->maint = pipes[9];
+            this->loginurl = pipes[11];
+            this->meta = pipes[13];
+        }
+        catch (const std::exception &) { std::fprintf(stderr, "[server_data.php] unreadable number, using defaults.\n"); }
         // @note pipes[] is flat: RTENDMARKERBS1001 lands at 14, optional maintenance|0/1 at 15-16.
         if (pipes.size() > 16 && pipes[15] == "maintenance")
             this->maintenance = pipes[16] == "1";
     } // @note delete str, pipes
+
+    // @note deployment: the address players connect to and the game port come from the environment when set
+    if (const char *v = std::getenv("GURO_SERVER_ADDR"); v && *v) this->server = v;
+    if (const char *v = std::getenv("GURO_PORT"); v && *v)
+    {
+        const long port = std::strtol(v, nullptr, 10);
+        if (port > 0 && port < 65536) this->port = static_cast<u_short>(port);
+    }
 } // @note close file
 
 void ::server_data::save_maintenance()

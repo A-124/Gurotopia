@@ -1,4 +1,5 @@
 #include "pch.hpp"
+#include <cstdlib>
 #include <fstream>
 
 #include "database_config.hpp"
@@ -30,4 +31,14 @@ void ::database_config::init()
             else if (!hPipe["password"].empty()) this->passwd = hPipe["password"];
         }
     } // @note delete pipes
+
+    // @note deployment: environment variables win over the file, so Docker / systemd never need a password on disk
+    if (const char *v = std::getenv("GURO_DB_HOST"); v && *v) this->host = v;
+    if (const char *v = std::getenv("GURO_DB_USER"); v && *v) this->user = v;
+    if (const char *v = std::getenv("GURO_DB_PASSWORD")) this->passwd = v;
+    if (const char *v = std::getenv("GURO_DB_PORT"); v && *v)
+    {
+        const long port = std::strtol(v, nullptr, 10);
+        if (port > 0 && port < 65536) this->port = static_cast<unsigned>(port);
+    }
 }

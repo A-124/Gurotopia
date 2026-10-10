@@ -3,10 +3,15 @@
 #include "popup.hpp"
 #include "trade.hpp"
 #include "gameplay/content_commands.hpp"
+#include "gameplay/profile_system.hpp"
+#include "tools/ui.hpp"
 
 void popup(ENetEvent& event, const ::hPipe &hPipe)
 {
     ::peer *pPeer = static_cast<::peer*>(event.peer->data);
+
+    // @note titles, notebook, bio, wardrobe, growmojis, world lock bank, view outfit, send message
+    if (profile_system::handle_popup(event, hPipe)) return;
 
     // @note wrench "Trade" button opens the P2P trade window.
     if (hPipe["buttonClicked"] == "trade")
