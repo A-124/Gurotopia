@@ -26,12 +26,8 @@ void popup(ENetEvent& event, const ::hPipe &hPipe)
         quests_command(event, "");
         return;
     }
-    if (hPipe["buttonClicked"] == "bonus")
-    {
-        // Reuse the daily rewards implementation instead of leaving the button inert.
-        daily_command(event, "");
-        return;
-    }
+    // "bonus" is the Grow Pass button in this Wrench Menu, not Daily Rewards.
+    // Leave it unhandled until a real Grow Pass implementation is connected.
     if (hPipe["buttonClicked"] == "trade_scan")
     {
         std::unordered_map<short, int> totals;
