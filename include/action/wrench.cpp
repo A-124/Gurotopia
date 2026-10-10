@@ -65,8 +65,9 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             .add_smalltext(std::format("Fires Put Out: {}", pOthers->fires_removed))
                             .add_spacer("small")
                             .add_textbox(std::format("`oYou have `w{}`` backpack slots.``", pOthers->slot_size))
-                            .add_textbox(std::format("`oCurrent world: `w{}`` (`w{}``, `w{}``) (`w0`` person)````", 
-                                                     pOthers->recent_worlds.back(), pOthers->pos.by_32(true).x_int(), pOthers->pos.by_32(true).y_int()))
+                            .add_textbox(std::format("`oCurrent world: `w{}`` (`w{}``, `w{}``) (`w{}`` person(s))````", 
+                                                     pOthers->recent_worlds.back(), pOthers->pos.by_32(true).x_int(), pOthers->pos.by_32(true).y_int(),
+                                                     peers(pOthers->recent_worlds.back(), PEER_SAME_WORLD).size()))
                             .add_textbox("`oYou are standing on the note \"A\".``")
                             .add_spacer("small")
                             .add_textbox("`oTotal time played is `w0.0`` hours.  This account was created `w0`` days ago.``")
@@ -91,9 +92,14 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             .add_custom_margin(75, -70.85)
                             .add_custom_margin(-75, 70.85)
                             .add_spacer("small")
-                            .add_label("small", "`1Achievements:`` 0/173"/*add total achivements*/)
+                            .add_label("small", std::format("`1Achievements:`` {}/{}", 
+                                std::min(pOthers->achievements_done.size(), achievement_system::all().size()),
+                                achievement_system::all().size()))
                             .add_spacer("small")
-                            .add_label("small", "`1Account Age:`` 0 days")
+                            .add_label("small", std::format("`1Account Age:`` {} days",
+                                pOthers->created_at > 0
+                                    ? std::max<long long>(0, (std::time(nullptr) - pOthers->created_at) / 86400)
+                                    : 0))
                             .add_spacer("small")
                             .add_button("trade", "`wTrade``")
                             .add_button("sendpm", "`wSend Message``")
