@@ -26,8 +26,8 @@
 # lucky_box|id|name|base_item|texture_path|drop_id,drop_id,...
 #   Drop IDs are weighted by position: with 4 IDs, their weights are 4, 3, 2, 1.
 #   Therefore the leftmost item is most likely and the rightmost is least likely.
-# pot_gold|id|name|base_item|texture_path|gem_multiplier
-#   Pot Gold guarantees gems when broken. The multiplier stacks with server gem events.
+# pot_gold|id|name|base_item|texture_path|min_gems,max_gems
+#   Pot Gold drops a random number of gems between min_gems and max_gems (inclusive).
 # base_item should be a vanilla block whose rendering/behavior metadata is suitable.
 # Textures are loaded from resources/custom_assets/ by basename; use game/<filename> in the config.
 #
@@ -44,5 +44,5 @@ recipe|20000|1|2:2
 # Custom blocks (IDs must not overlap vanilla item IDs).
 # Lucky Box weights: 2=40%, 10=30%, 18=20%, 112=10% with this four-entry list.
 lucky_box|30000|Lucky Box|2|game/Lucky_box.rttex|2,10,18,112
-# Pot Gold pays 10x the base rarity gem amount on every successful break.
-pot_gold|30001|Pot Gold|2|game/Pot_Gold.rttex|10
+# Pot Gold drops a random 1 to 50 gems per break; adjust either bound as desired.
+pot_gold|30001|Pot Gold|2|game/Pot_Gold.rttex|1,50
