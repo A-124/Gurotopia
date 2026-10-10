@@ -488,6 +488,10 @@ void world::mysql_select_all()
         this->objects.clear();
         this->last_object_uid = 0;
         bool migrated_legacy_pot_gold_object = false;
+        const auto* configured_pot_gold = custom_content::find_item(30002);
+        const bool migrate_legacy_pot_gold =
+            !custom_content::find_item(30001) && configured_pot_gold &&
+            configured_pot_gold->block_kind == custom_content::custom_block_kind::pot_gold;
         if (blob.size() >= sizeof(u_int))
         {
             std::size_t i{};
