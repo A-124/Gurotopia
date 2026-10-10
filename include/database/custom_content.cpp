@@ -117,6 +117,11 @@ bool parse_file(parsed_content& parsed) {
                         break;
                     }
                     def.lucky_box_drops.emplace_back(drop_id);
+                    if (def.lucky_box_drops.size() > 255) {
+                        add_error(parsed, line_number, "Lucky Box supports at most 255 drop entries");
+                        def.lucky_box_drops.clear();
+                        break;
+                    }
                 }
                 if (def.lucky_box_drops.empty()) {
                     add_error(parsed, line_number, "Lucky Box must configure at least one drop item ID");
