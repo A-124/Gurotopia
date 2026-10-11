@@ -268,21 +268,36 @@ bool rebuild_custom_items()
         std::size_t behavior_base_index = items.size();
         for (std::size_t n = 0; n < items.size(); ++n)
             if (items[n].id == static_cast<u_short>(def.base_item)) { behavior_base_index = n; break; }
-        if (behavior_base_index == items.size()) continue;
+        if (behavior_base_index == items.size()) { std::printf("[items] custom item %d: base_item %d not found, item skipped\n", id, def.base_item); continue; }
 
         const int render_base_id = def.render_base_item >= 0 ? def.render_base_item : def.base_item;
         std::size_t render_base_index = item_records.size();
         for (std::size_t n = 0; n < items.size(); ++n)
             if (items[n].id == static_cast<u_short>(render_base_id)) { render_base_index = n; break; }
-        if (render_base_index == item_records.size()) continue;
+        if (render_base_index == item_records.size()) { std::printf("[items] custom item %d: render_base_item %d not found, item skipped\n", id, render_base_id); continue; }
 
         bool vanilla_id = false;
         for (const auto& vanilla : items)
             if (vanilla.id == static_cast<u_short>(id)) { vanilla_id = true; break; }
         if (vanilla_id || id < static_cast<int>(vanilla_count)) continue;
+        // Server-side runtime item is registered FIRST. Previously it was pushed only after the
+        // client record was built, so any skipped step below left the ID in the inventory
+        // but unknown to id_to_item(): the item showed up yet could not be used/dropped/trashed.
+        const u_short runtime_id = static_cast<u_short>(id);
+        ::item runtime = items[behavior_base_index];
+        runtime.id = runtime_id;
+        runtime.raw_name = def.name;
+        runtime.info = def.info;
+        runtime.type = static_cast<u_char>(std::clamp(def.type, 0, 255));
+        runtime.rarity = static_cast<short>(std::clamp(def.rarity, -32768, 32767));
+        if (def.tradeable) runtime.cat = static_cast<u_char>(runtime.cat & ~CAT_UNTRADEABLE);
+        else runtime.cat = static_cast<u_char>(runtime.cat | CAT_UNTRADEABLE);
+        runtime.ingredient = static_cast<int>(def.base_item);
+        custom_runtime_items.emplace_back(std::move(runtime));
+
 
         const auto& render_base = item_records[render_base_index];
-        if (render_base.size() < 10) continue;
+        if (render_base.size() < 10) { std::printf("[items] custom item %d: render base record too small, client record skipped\n", id); continue; }
 
         std::vector<u_char> record = render_base;
         const u_short custom_id = static_cast<u_short>(id);
@@ -305,7 +320,7 @@ bool rebuild_custom_items()
         u_short name_len{};
         std::memcpy(&name_len, record.data() + 8, sizeof(name_len));
         const std::size_t name_start = 10;
-        if (name_start + name_len > record.size() || def.name.size() > 32767) continue;
+        if (name_start + name_len > record.size() || def.name.size() > 32767) { std::printf("[items] custom item %d: bad name length, client record skipped\n", id); continue; }
 
         std::vector<u_char> encoded(def.name.size());
         for (std::size_t n = 0; n < def.name.size(); ++n)
@@ -315,7 +330,15 @@ bool rebuild_custom_items()
         record.insert(record.begin() + name_start, encoded.begin(), encoded.end());
         write_u16(record, 8, static_cast<u_short>(encoded.size()));
 
-        if (!def.texture.empty()) {
+        // Two texture slots: the main slot (texture string right after the name) and the
+        // extra-file slot further down the record. Without an icon_texture only the main slot is
+        // touched. With one, `texture` + `icon_texture` are split between the slots
+        // (icon_slot=extra: main=texture, extra=icon; icon_slot=main: main=icon, extra=texture).
+        const bool has_icon = !def.icon_texture.empty();
+        const std::string& main_tex  = (has_icon && def.icon_in_main) ? def.icon_texture : def.texture;
+        const std::string& extra_tex = !has_icon ? std::string() : (def.icon_in_main ? def.texture : def.icon_texture);
+
+        if (!main_tex.empty()) {
             const std::size_t texture_len_pos = name_start + encoded.size();
             if (texture_len_pos + sizeof(u_short) <= record.size()) {
                 u_short old_len{};
@@ -323,8 +346,8 @@ bool rebuild_custom_items()
                 const std::size_t texture_start = texture_len_pos + sizeof(u_short);
                 if (texture_start + old_len <= record.size()) {
                     record.erase(record.begin() + texture_start, record.begin() + texture_start + old_len);
-                    record.insert(record.begin() + texture_start, def.texture.begin(), def.texture.end());
-                    const u_short new_len = static_cast<u_short>(def.texture.size());
+                    record.insert(record.begin() + texture_start, main_tex.begin(), main_tex.end());
+                    const u_short new_len = static_cast<u_short>(main_tex.size());
                     write_u16(record, texture_len_pos, new_len);
 
                     // Only redirect the texture. All renderer/animation/punch
@@ -349,7 +372,7 @@ bool rebuild_custom_items()
 
                     const std::filesystem::path texture_path =
                         std::filesystem::path("resources/custom_assets") /
-                        std::filesystem::path(def.texture).filename();
+                        std::filesystem::path(main_tex).filename();
                     std::ifstream texture_file(texture_path, std::ios::binary);
                     if (!texture_file) {
                         std::printf("[items] custom item %u: texture file missing: %s\n",
@@ -364,27 +387,50 @@ bool rebuild_custom_items()
                                     static_cast<unsigned>(custom_id), texture_path.string().c_str());
                         continue;
                     }
+                    // Report the real RTTEX canvas so a texture that is still 32x32 is obvious.
+                    if (texture_data.size() >= 16 && std::memcmp(texture_data.data(), "RTTXTR", 6) == 0) {
+                        u_int tex_h{}, tex_w{};
+                        std::memcpy(&tex_h, texture_data.data() + 8, sizeof(tex_h));
+                        std::memcpy(&tex_w, texture_data.data() + 12, sizeof(tex_w));
+                        std::printf("[items] custom item %u: texture %s canvas %ux%u\n",
+                                    static_cast<unsigned>(custom_id), texture_path.filename().string().c_str(), tex_w, tex_h);
+                        if (tex_w == 0 || tex_h == 0 || (tex_w & (tex_w - 1)) || (tex_h & (tex_h - 1)))
+                            std::printf("[items] custom item %u: WARNING canvas must be a power of two (32/64/128...)\n",
+                                        static_cast<unsigned>(custom_id));
+                    }
                     const u_int texture_hash =
                         hash_bytes(texture_data.data(), texture_data.size());
                     const std::size_t hash_pos = texture_start + new_len;
-                    if (hash_pos + sizeof(texture_hash) > record.size()) continue;
+                    if (hash_pos + sizeof(texture_hash) > record.size()) { std::printf("[items] custom item %d: record too short for texture hash, client record skipped\n", id); continue; }
                     std::memcpy(record.data() + hash_pos, &texture_hash, sizeof(texture_hash));
+
+                    // Extra-file slot. Verified against vanilla records: it starts 14 bytes after the
+                    // texture-x byte (x,y,spread,stripey + collision/hits/hit_reset(6) + cloth(1)
+                    // + rarity(2) + max_amount(1)) as {u16 len}{string}{u32 hash}.
+                    if (!extra_tex.empty()) {
+                        const std::size_t extra_len_pos = texture_x_pos + 14;
+                        u_short old_extra{};
+                        if (extra_len_pos + sizeof(u_short) <= record.size()) std::memcpy(&old_extra, record.data() + extra_len_pos, sizeof(old_extra));
+                        const std::size_t extra_start = extra_len_pos + sizeof(u_short);
+                        const std::filesystem::path extra_path =
+                            std::filesystem::path("resources/custom_assets") / std::filesystem::path(extra_tex).filename();
+                        std::ifstream extra_file(extra_path, std::ios::binary);
+                        std::vector<u_char> extra_data((std::istreambuf_iterator<char>(extra_file)), std::istreambuf_iterator<char>());
+                        if (extra_start + old_extra + sizeof(u_int) > record.size() || extra_data.empty()) {
+                            std::printf("[items] custom item %d: icon/extra texture not applied (%s)\n", id, extra_path.string().c_str());
+                        } else {
+                            record.erase(record.begin() + extra_start, record.begin() + extra_start + old_extra);
+                            record.insert(record.begin() + extra_start, extra_tex.begin(), extra_tex.end());
+                            const u_short new_extra = static_cast<u_short>(extra_tex.size());
+                            write_u16(record, extra_len_pos, new_extra);
+                            const u_int extra_hash = hash_bytes(extra_data.data(), extra_data.size());
+                            std::memcpy(record.data() + extra_start + new_extra, &extra_hash, sizeof(extra_hash));
+                            std::printf("[items] custom item %d: slots main=%s extra=%s\n", id, main_tex.c_str(), extra_tex.c_str());
+                        }
+                    }
                 }
             }
         }
-
-        // Clone server-side wearable metadata from the behavior base. The optional
-        // render base affects only the client record template above.
-        ::item runtime = items[behavior_base_index];
-        runtime.id = custom_id;
-        runtime.raw_name = def.name;
-        runtime.info = def.info;
-        runtime.type = static_cast<u_char>(std::clamp(def.type, 0, 255));
-        runtime.rarity = static_cast<short>(std::clamp(def.rarity, -32768, 32767));
-        if (def.tradeable) runtime.cat = static_cast<u_char>(runtime.cat & ~CAT_UNTRADEABLE);
-        else runtime.cat = static_cast<u_char>(runtime.cat | CAT_UNTRADEABLE);
-        runtime.ingredient = static_cast<int>(def.base_item);
-        custom_runtime_items.emplace_back(std::move(runtime));
 
         custom_records.emplace_back(static_cast<u_int>(id), std::move(record));
     }

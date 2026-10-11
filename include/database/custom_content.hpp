@@ -17,6 +17,11 @@ struct custom_item {
     int rarity{};
     bool tradeable{true};
     std::string texture{};
+    // Optional second texture slot (item field 11). By default the main slot holds `texture`
+    // (the visual / worn sprite) and the extra-file slot holds `icon_texture`.
+    // icon_in_main=true swaps them (main = icon, extra = visual).
+    std::string icon_texture{};
+    bool icon_in_main{false};
     std::string info{};
     custom_block_kind block_kind{custom_block_kind::none};
     // Lucky Box uses positional weights: first ID has the highest chance, last the lowest.

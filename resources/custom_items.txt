@@ -1,7 +1,7 @@
 # Gurotopia custom content configuration
 #
 # ITEM FORMAT (one item per line):
-# item|id|name|base_item|type|rarity|tradeable|texture_path|info|render_base_item(optional)
+# item|id|name|base_item|type|rarity|tradeable|texture_path|info|render_base_item(optional)|icon_texture(optional)|icon_slot(optional)
 #
 # Fields:
 # id          = unique custom item ID (1000-65535; do not reuse vanilla IDs)
@@ -14,10 +14,18 @@
 # tradeable   = 1 allows dropping/trading; 0 marks it untradeable
 # texture_path= client texture path in items.dat (e.g. game/Leey_Katana.rttex)
 # info        = text shown in the /info item dialog; do not use the | character
+# icon_texture= optional SECOND texture (e.g. game/Leey_Katana_icon.rttex, 32x32) so the visual
+#               texture can be 64x64 while the icon stays small. Leave render_base_item empty
+#               (||) if you want an icon but no render base.
+# icon_slot   = extra (default): texture_path = main slot, icon_texture = extra-file slot.
+#               main: swapped (main slot = icon_texture, extra-file slot = texture_path).
+#               If the icon does not change in game with "extra", set this to "main".
 #
 # NOTE: the server passes the configured .rttex asset through; it does not resize or pad it.
-# To test a larger canvas, replace resources/custom_assets/Leey_Katanav5.rttex with your
-# larger .rttex file and keep the texture path below. Client rendering may still impose limits.
+# RTTEX canvases must be a power of two, so a 48x16 sprite has to sit on a 64x64 (or 64x16)
+# canvas. Build one with:  python tools/png_to_rttex.py art.png resources/custom_assets/Name.rttex
+# (default canvas 64x64, art at top-left). On startup the server prints each custom texture's
+# real canvas size, e.g. "texture Leey_Katana64.rttex canvas 64x64".
 #
 # The server loads texture files from resources/custom_assets/ using the basename
 # of texture_path. Keep the texture_path in the same format as vanilla items.dat.
@@ -39,7 +47,7 @@
 # recipe|20000|1|2:2
 #
 # Leey Katana: clones Legendary Katana (ID 2592).
-item|20000|`cLeey Katana|2592|20|10|1|game/Leey_Katanav2.rttex|A custom katana made for Gurotopia.|2592
+item|20000|`cLeey Katana|2592|20|10|1|game/tester64x64.rttex|A custom katana made for Gurotopia.|2592|game/Leey_Katanav2.rttex|extra
 
 #RECIPE
 recipe|20000|1|2:2

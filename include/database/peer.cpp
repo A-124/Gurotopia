@@ -581,7 +581,21 @@ void send_inventory_state(ENetPeer &enet_peer)
     });
     blob.u8(0x01); // @note enable flag for big backpack
 
-    blob.push_back(pPeer->serialize_inventory());
+    // Only send slots the server can actually act on. An ID that is not a vanilla item and has no
+    // runtime definition (e.g. a custom item removed/renamed in custom_items.txt) shows up in the
+    // client as an item that cannot be used, dropped or trashed. Keep it saved, but do not show it.
+    std::vector<const ::slot*> visible;
+    visible.reserve(pPeer->slots.size());
+    for (const ::slot &slot : pPeer->slots)
+    {
+        const u_short id = static_cast<u_short>(slot.id);
+        if (id < items.size() || id_to_item(id).id == id) visible.push_back(&slot);
+        else std::printf("[inventory] %s holds unknown item id %u (x%d): hidden from client, still saved\n",
+                         pPeer->growid.c_str(), static_cast<unsigned>(id), static_cast<int>(slot.count));
+    }
+    blob.i32(pPeer->slot_size);
+    blob.i16(visible.size());
+    for (const ::slot *slot : visible) blob.push_back(slot->to_blob());
 
     ENetPacket *packet = enet_packet_create(blob.data().data(), blob.size(), ENET_PACKET_FLAG_RELIABLE);
 	if (enet_peer_send(&enet_peer, 0, packet)) enet_packet_destroy(packet);

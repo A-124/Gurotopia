@@ -148,8 +148,8 @@ bool parse_file(parsed_content& parsed) {
         }
 
         if (fields[0] == "item") {
-            if (fields.size() < 6 || fields.size() > 10) {
-                add_error(parsed, line_number, "expected item|id|name|base_item|type|rarity|tradeable(0/1)|texture|info|render_base_item(optional)"); continue;
+            if (fields.size() < 6 || fields.size() > 12) {
+                add_error(parsed, line_number, "expected item|id|name|base_item|type|rarity|tradeable(0/1)|texture|info|render_base_item(optional)|icon_texture(optional)|icon_slot(optional)"); continue;
             }
             custom_item def;
             if (!integer(fields[1], def.id) || !integer(fields[3], def.base_item) ||
@@ -157,7 +157,7 @@ bool parse_file(parsed_content& parsed) {
                 add_error(parsed, line_number, "item id, base_item, type, and rarity must be integers"); continue;
             }
             def.name = fields[2];
-            if (fields.size() > 9 && !integer(fields[9], def.render_base_item)) {
+            if (fields.size() > 9 && !trim(fields[9]).empty() && !integer(fields[9], def.render_base_item)) {
                 add_error(parsed, line_number, "render_base_item must be an integer vanilla item ID"); continue;
             }
             if (fields.size() > 6) {
@@ -167,6 +167,13 @@ bool parse_file(parsed_content& parsed) {
                 def.tradeable = fields[6] == "1";
             }
             if (fields.size() > 7) def.texture = fields[7];
+            if (fields.size() > 10) def.icon_texture = std::string(trim(fields[10]));
+            if (fields.size() > 11) {
+                const auto mode = std::string(trim(fields[11]));
+                if (mode == "main") def.icon_in_main = true;
+                else if (mode.empty() || mode == "extra") def.icon_in_main = false;
+                else { add_error(parsed, line_number, "icon_slot must be 'extra' or 'main'"); continue; }
+            }
             if (fields.size() > 8) def.info = fields[8];
             if (def.id < 1000 || def.id > 65535) {
                 add_error(parsed, line_number, "custom item id must be between 1000 and 65535"); continue;
@@ -204,6 +211,13 @@ bool parse_file(parsed_content& parsed) {
                 }
                 if (std::filesystem::file_size(path, ec) == 0 || ec) {
                     add_error(parsed, line_number, std::format("texture file is empty or unreadable: {}", path.string())); continue;
+                }
+            }
+            if (!def.icon_texture.empty()) {
+                const auto path = std::filesystem::path("resources/custom_assets") / std::filesystem::path(def.icon_texture).filename();
+                std::error_code ec;
+                if (!std::filesystem::is_regular_file(path, ec) || ec || std::filesystem::file_size(path, ec) == 0 || ec) {
+                    add_error(parsed, line_number, std::format("icon texture file is missing or empty: {}", path.string())); continue;
                 }
             }
             parsed.items.emplace(def.id, std::move(def));
