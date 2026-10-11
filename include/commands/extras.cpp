@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include <chrono>
+#include <unordered_map>
 #include "onVariant/ConsoleMessage.hpp"
 #include "onVariant/NameChanged.hpp"
 #include "tools/ui.hpp"
@@ -75,4 +76,48 @@ void command_rainbow(ENetEvent &event, std::string_view)
     on::ConsoleMessage(event.peer, self->rainbow_name
         ? "Rainbow nickname enabled for this session."
         : "Rainbow nickname disabled.");
+}
+
+namespace
+{
+    std::unordered_map<int, std::chrono::steady_clock::time_point> legendary_broadcast_cooldowns;
+}
+void command_lsb(ENetEvent &event, std::string_view text)
+{
+    ::peer *self = self_of(event);
+    if (!self) return;
+    const auto split = text.find_first_of(" \t");
+    std::string_view message = split == std::string_view::npos ? std::string_view{} : text.substr(split + 1);
+    while (!message.empty() && std::isspace(static_cast<unsigned char>(message.front()))) message.remove_prefix(1);
+    while (!message.empty() && std::isspace(static_cast<unsigned char>(message.back()))) message.remove_suffix(1);
+    if (message.empty())
+    {
+        on::ConsoleMessage(event.peer, "Usage: /lsb <message> (requires Legendary Mask, item 25550).");
+        return;
+    }
+    const auto mask = std::ranges::find(self->slots, static_cast<short>(25550), &::slot::id);
+    if (mask == self->slots.end() || mask->count <= 0)
+    {
+        on::ConsoleMessage(event.peer, "You need a Legendary Mask (item 25550) to use /lsb.");
+        return;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (const auto it = legendary_broadcast_cooldowns.find(self->user_id); it != legendary_broadcast_cooldowns.end())
+    {
+        const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - it->second).count();
+        if (elapsed < 300)
+        {
+            const auto remaining = 300 - elapsed;
+            on::ConsoleMessage(event.peer, std::format("Legendary broadcast cooldown: {}m {}s.", remaining / 60, remaining % 60));
+            return;
+        }
+    }
+    const std::string world = self->recent_worlds.back().empty() ? "EXIT" : self->recent_worlds.back();
+    const std::string announcement = std::format("`5[LEGEND-SB] from ({} `5) in [`o{}`5]: `o{}", self->nametag(), world, message);
+    legendary_broadcast_cooldowns[self->user_id] = now;
+    for (ENetPeer *candidate : peers())
+    {
+        auto *target = candidate ? static_cast<::peer*>(candidate->data) : nullptr;
+        if (target && !target->growid.empty()) on::ConsoleMessage(candidate, announcement);
+    }
 }
