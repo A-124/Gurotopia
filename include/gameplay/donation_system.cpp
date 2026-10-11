@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include <fstream>
+#include <map>
 #include <sstream>
 #include "database/peer.hpp"
 #include "database/items.hpp"
