@@ -4,6 +4,7 @@
 #include <fstream>
 #include <charconv>
 #include "onVariant/ConsoleMessage.hpp"
+#include "onVariant/AddNotification.hpp"
 #include "tools/ui.hpp"
 #include "tools/random.hpp"
 #include "gameplay/gacha_system.hpp"
@@ -104,7 +105,10 @@ void command_lsb(ENetEvent &event, std::string_view text)
     for (ENetPeer *candidate : peers())
     {
         auto *target = candidate ? static_cast<::peer*>(candidate->data) : nullptr;
-        if (target && !target->growid.empty()) on::ConsoleMessage(candidate, announcement);
+        if (target && !target->growid.empty()) {
+            on::ConsoleMessage(candidate, announcement);
+            on::AddNotification(candidate, std::format("[LEGEND-SB] {} in {}: {}", self->growid, world, message), "audio/hub_open.wav");
+        }
     }
 }
 
