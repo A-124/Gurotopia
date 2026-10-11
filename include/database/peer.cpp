@@ -359,13 +359,12 @@ std::string peer::nametag() const
               : this->role == MODERATOR ? std::format("`c{}``", this->nick) : this->nick;
 
     const std::string tag = this->title_enabled ? title_system::tag(*this) : std::string{};
-    if (tag.empty()) return shown;
-
-    // @note the client recolours a plain name with its own base colour (level 125 players get cyan) and also
-    //       after every "``" reset. With a title worn every part gets an explicit colour, so the title keeps
-    //       its own colour (Developer stays black) and the name keeps its role colour (white for players).
-    const bool coloured = !shown.empty() && shown.front() == '`';
-    return tag + (coloured ? shown : std::format("`w{}``", shown));
+    // Explicitly colour ordinary names too: otherwise the client applies its built-in
+    // level-125 cyan/Platinum name colour even when the player has no custom title.
+    const bool coloured = !shown.empty() && shown.front() == '\x60';
+    const std::string explicit_name = coloured ? shown : std::format("\x60w{}", shown);
+    if (tag.empty()) return explicit_name;
+    return tag + explicit_name;
 }
 
 void peer::save_moderation()
