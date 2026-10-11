@@ -48,7 +48,7 @@ void find(ENetEvent& event, const std::string_view) {
     sessions[p->netid] = {};
     show_find(event);
 }
-void find_item(ENetEvent& event, const ::hPipe& pipe) {
+void handle_find_dialog(ENetEvent& event, const ::hPipe& pipe) {
     auto* p = event.peer && event.peer->data ? static_cast<::peer*>(event.peer->data) : nullptr;
     if (!p) return;
     const std::string button = pipe["buttonClicked"];
