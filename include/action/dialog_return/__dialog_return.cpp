@@ -23,7 +23,6 @@
 #include "gameplay/welcome_system.hpp"
 #include "gameplay/gacha_system.hpp"
 #include "gameplay/item_exchange_system.hpp"
-#include "gameplay/donation_system.hpp"
 #include "gameplay/bonus_drop_system.hpp"
 #include "commands/extras.hpp"
 
@@ -67,7 +66,6 @@ std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)
     {"gurotopia_gacha_result", std::bind(&gacha_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_exchange", std::bind(&item_exchange_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_exchange_admin", std::bind(&item_exchange_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
-    {"gurotopia_donation_box", std::bind(&donation_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"bonus_main_menu", std::bind(&bonus_drop_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"scanitem_main", std::bind(&handle_scanitem_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"scanitem_browser", std::bind(&handle_scanitem_dialog_return, std::placeholders::_1, std::placeholders::_2)},
