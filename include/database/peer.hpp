@@ -112,7 +112,6 @@ public:
     u_int hair_color = bgra::GREEN | bgra::GREEN | bgra::RED | bgra::ALPHA; // @note value declines for specfic hair colors
 
     bool one_hit{}; // Developer-only /1hit mode: break breakable blocks in one punch.
-    bool rainbow_name{}; // Session-only /rainbow nickname effect.
 
     int state{}; // @note using pstate::
 
