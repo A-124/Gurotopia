@@ -39,19 +39,24 @@ void command(ENetEvent& event, std::string_view text) {
     if (!p) return;
     if (p->role != DEVELOPER) { on::ConsoleMessage(event.peer, "Only developers can manage bonus drops."); return; }
     std::istringstream in{std::string(text)};
-    std::string cmd;
-    int tile{}, item{}, amount{1}, chance{100};
-    in >> cmd >> tile;
-    if (cmd.empty() || tile <= 0) {
-        on::ConsoleMessage(event.peer, "Usage: /bonusdrop <tile_id> <drop_item_id> <amount> <chance_percent> | /bonusdrop remove <tile_id> <index> | /bonusdrop list <tile_id>");
+    std::string command_name, operation;
+    in >> command_name >> operation;
+    load();
+    if (operation == "list") {
+        int tile{}; in >> tile;
+        auto it = rules.find(tile);
+        if (!in || it == rules.end() || it->second.empty()) { on::ConsoleMessage(event.peer, "No bonus drops configured for that tile."); return; }
+        for (std::size_t i = 0; i < it->second.size(); ++i) {
+            const auto& e = it->second[i];
+            on::ConsoleMessage(event.peer, std::format("{}: item {} x{} at {}% chance", i + 1, e.item, e.amount, e.chance));
+        }
         return;
     }
-    load();
-    if (cmd == "remove") {
-        int index{}; in >> tile >> index;
+    if (operation == "remove") {
+        int tile{}, index{}; in >> tile >> index;
         auto it = rules.find(tile);
-        if (it == rules.end() || index < 1 || index > static_cast<int>(it->second.size())) {
-            on::ConsoleMessage(event.peer, "No matching bonus drop rule.");
+        if (!in || it == rules.end() || index < 1 || index > static_cast<int>(it->second.size())) {
+            on::ConsoleMessage(event.peer, "Usage: /bonusdrop remove <tile_id> <index>");
             return;
         }
         it->second.erase(it->second.begin() + index - 1);
@@ -59,18 +64,16 @@ void command(ENetEvent& event, std::string_view text) {
         on::ConsoleMessage(event.peer, save() ? "Bonus drop rule removed." : "Could not save bonus drop configuration.");
         return;
     }
-    if (cmd == "list") {
-        auto it = rules.find(tile);
-        if (it == rules.end() || it->second.empty()) { on::ConsoleMessage(event.peer, "No bonus drops configured for that tile."); return; }
-        for (std::size_t i = 0; i < it->second.size(); ++i) {
-            const auto& e = it->second[i];
-            on::ConsoleMessage(event.peer, std::format("{}: item {} x{} at {}% chance", i + 1, e.item, e.amount, e.chance));
-        }
+    int tile{}, item{}, amount{1}, chance{100};
+    try {
+        std::size_t used{};
+        tile = std::stoi(operation, &used);
+        if (used != operation.size()) throw std::invalid_argument("tile");
+    } catch (...) {
+        on::ConsoleMessage(event.peer, "Usage: /bonusdrop <tile_id> <drop_item_id> <amount> <chance_percent> | /bonusdrop list <tile_id> | /bonusdrop remove <tile_id> <index>");
         return;
     }
-    // Normal add syntax: /bonusdrop <tile_id> <drop_item_id> <amount> <chance_percent>
-    item = tile; // first number was read into tile; reparse the full command for clear validation
-    in.clear(); in.str(std::string(text)); in >> cmd >> tile >> item >> amount >> chance;
+    in >> item >> amount >> chance;
     if (!in || tile <= 0 || tile > 32767 || item <= 0 || item > 32767 || amount < 1 || amount > 200 || chance < 1 || chance > 100) {
         on::ConsoleMessage(event.peer, "Usage: /bonusdrop <tile_id> <drop_item_id> <amount> <chance_percent> (chance 1-100).");
         return;
