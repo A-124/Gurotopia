@@ -43,6 +43,17 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
 
         ::block &block = world->blocks[cord(gamePacket.punch.x, gamePacket.punch.y)];
 
+        // Port of lock_display_byLvy.lua: keep valuable currency locks out of display blocks.
+        // Validate the held item before the placement path mutates the tile or inventory.
+        if (block.fg == 2946 &&
+            (gamePacket.id == 242 || gamePacket.id == 1796 ||
+             gamePacket.id == 7188 || gamePacket.id == 20628))
+        {
+            on::ConsoleMessage(event.peer,
+                "`4World Locks, Diamond Locks, Blue Gem Locks and Black Blue Gem Locks cannot be placed in Display Blocks.``");
+            return;
+        }
+
         const ::item &item = id_to_item((gamePacket.id != 32 && gamePacket.id != 18) ? gamePacket.id : (block.fg != 0) ? block.fg : block.bg);
         if (item.id == 0) return;
 
