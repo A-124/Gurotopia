@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <fstream>
 #include <charconv>
+#include <filesystem>
 #include "onVariant/ConsoleMessage.hpp"
 #include "onVariant/AddNotification.hpp"
 #include "database/item_registry.hpp"
