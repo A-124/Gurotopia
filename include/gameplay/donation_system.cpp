@@ -5,6 +5,7 @@
 #include <sstream>
 #include "database/peer.hpp"
 #include "database/items.hpp"
+#include "database/item_registry.hpp"
 #include "onVariant/ConsoleMessage.hpp"
 #include "gameplay/donation_system.hpp"
 
@@ -116,7 +117,7 @@ void open_box(ENetEvent& event) {
     if (!p) return;
     load();
     const auto own = donors[p->user_id].rarity;
-    std::string d = "set_default_color|o\n";
+    std::string d = "set_default_color|\x60o\n";
     d += "add_label_with_icon|big|Stuff-4-Toys Donation Box|left|4264|\n";
     d += "add_textbox|Donate items with rarity to earn milestone rewards. Items with rarity 999 cannot be donated.|left|\n";
     d += std::format("add_textbox|Your donated rarity: {}|left|\n", own);
