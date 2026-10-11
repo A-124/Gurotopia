@@ -18,6 +18,7 @@
 #include "core/event_bus.hpp"
 #include "commands/moderation.hpp" // @note username_for_uid()
 #include "gameplay/bonus_drop_system.hpp"
+#include "gameplay/donation_system.hpp"
 
 #include "tile_change.hpp"
 
@@ -369,11 +370,8 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     break; // @note break-loot handled below like normal blocks (Lucky granted on break)
                 case type::DONATION_BOX:
                 {
-                    // @note items.dat: "People can drop gifts into this box for you to pickup later!"
-                    // @todo real donation storage (drop items in, owner picks up later).
-                    if (block.hits[0] == 0)
-                        on::ConsoleMessage(event.peer, "`oDrop items here for the owner to pick up later. (Donation storage coming soon.)``");
-                    break;
+                    donation_system::open_box(event);
+                    return;
                 }
                 case type::MAILBOX:
                 {
@@ -930,6 +928,11 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                         "OnDialogRequest",
                         dialog.end_dialog("display_edit", "Close", "Done")
                     });
+                    break;
+                }
+                case type::DONATION_BOX:
+                {
+                    donation_system::open_box(event);
                     break;
                 }
                 case type::VENDING_MACHINE:
