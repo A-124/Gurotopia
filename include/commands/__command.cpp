@@ -179,6 +179,7 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"uptime", &command_uptime},
         {"count", &command_count},
         {"rainbow", &command_rainbow},
+        {"lsb", &command_lsb},
         {"mute", &command_mute},
         {"unmute", &command_unmute},
         {"pinfo", &command_pinfo},
