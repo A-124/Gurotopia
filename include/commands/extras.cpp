@@ -1,6 +1,8 @@
 #include "pch.hpp"
 #include <chrono>
 #include <unordered_map>
+#include <fstream>
+#include <charconv>
 #include "onVariant/ConsoleMessage.hpp"
 #include "onVariant/NameChanged.hpp"
 #include "tools/ui.hpp"
@@ -120,4 +122,66 @@ void command_lsb(ENetEvent &event, std::string_view text)
         auto *target = candidate ? static_cast<::peer*>(candidate->data) : nullptr;
         if (target && !target->growid.empty()) on::ConsoleMessage(candidate, announcement);
     }
+}
+
+namespace
+{
+    std::optional<int> load_scanned_item()
+    {
+        std::ifstream file{"resources/scanitem.txt"};
+        int id{};
+        if (!(file >> id) || id <= 0 || id > 32767) return std::nullopt;
+        return id;
+    }
+}
+void command_scanitem(ENetEvent &event, std::string_view text)
+{
+    ::peer *self = self_of(event);
+    if (!self) return;
+    if (self->role < MODERATOR)
+    {
+        on::ConsoleMessage(event.peer, "Only staff can use /scanitem.");
+        return;
+    }
+    const auto split = text.find_first_of(" \t");
+    std::string_view arg = split == std::string_view::npos ? std::string_view{} : text.substr(split + 1);
+    while (!arg.empty() && std::isspace(static_cast<unsigned char>(arg.front()))) arg.remove_prefix(1);
+    while (!arg.empty() && std::isspace(static_cast<unsigned char>(arg.back()))) arg.remove_suffix(1);
+    if (!arg.empty())
+    {
+        int id{};
+        const auto [end, ec] = std::from_chars(arg.data(), arg.data() + arg.size(), id);
+        if (ec != std::errc{} || end != arg.data() + arg.size() || id <= 0 || id > 32767)
+        {
+            on::ConsoleMessage(event.peer, "Usage: /scanitem [item_id]");
+            return;
+        }
+        std::ofstream file{"resources/scanitem.txt", std::ios::trunc};
+        if (!file || !(file << id << '\n'))
+        {
+            on::ConsoleMessage(event.peer, "Could not save resources/scanitem.txt.");
+            return;
+        }
+        on::ConsoleMessage(event.peer, std::format("Item scanner now tracks item ID {}.", id));
+        return;
+    }
+    const auto id = load_scanned_item();
+    if (!id)
+    {
+        on::ConsoleMessage(event.peer, "No tracked item configured. Use /scanitem <item_id>.");
+        return;
+    }
+    std::size_t holders = 0;
+    long long total = 0;
+    for (ENetPeer *candidate : peers())
+    {
+        auto *target = candidate ? static_cast<::peer*>(candidate->data) : nullptr;
+        if (!target || target->growid.empty()) continue;
+        const auto slot = std::ranges::find(target->slots, static_cast<short>(*id), &::slot::id);
+        if (slot == target->slots.end() || slot->count <= 0) continue;
+        ++holders;
+        total += slot->count;
+        on::ConsoleMessage(event.peer, std::format("{} has {} of item {}.", target->growid, slot->count, *id));
+    }
+    on::ConsoleMessage(event.peer, std::format("Scan complete: {} online holders, {} total items (ID {}).", holders, total, *id));
 }
