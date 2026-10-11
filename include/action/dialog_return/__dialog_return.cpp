@@ -70,6 +70,7 @@ std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)
     {"gurotopia_donation_box", std::bind(&donation_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"bonus_main_menu", std::bind(&bonus_drop_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"scanitem_main", std::bind(&handle_scanitem_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"scanitem_browser", std::bind(&handle_scanitem_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"scanitem_results", std::bind(&handle_scanitem_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_content", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
 };
