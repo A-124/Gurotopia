@@ -112,11 +112,16 @@ void execute(ENetEvent& event, int pulls) {
             show(event, "Inventory has no room for those results. No currency was spent.");
             return;
         }
+    }
+    std::size_t new_slots = 0;
+    for (const auto& [id, amount] : additions) {
+        (void)amount;
         const bool stack = std::ranges::any_of(p->slots, [id](const ::slot& s) { return s.id == id && s.count > 0; });
-        if (!stack && p->slots.size() + additions.size() > static_cast<std::size_t>(std::max(p->slot_size, 0))) {
-            show(event, "Your backpack is full. No currency was spent.");
-            return;
-        }
+        if (!stack) ++new_slots;
+    }
+    if (p->slots.size() + new_slots > static_cast<std::size_t>(std::max(p->slot_size, 0))) {
+        show(event, "Your backpack is full. No currency was spent.");
+        return;
     }
     modify_item_inventory(event, {currency_id, static_cast<short>(-cost)});
     auto& data = saved[p->user_id];
