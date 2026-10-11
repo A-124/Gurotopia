@@ -1,10 +1,12 @@
 #include "pch.hpp"
 #include <fstream>
 #include <sstream>
+#include <charconv>
 #include <map>
 #include "database/peer.hpp"
 #include "database/world.hpp"
 #include "onVariant/ConsoleMessage.hpp"
+#include "tools/ui.hpp"
 #include "tools/random.hpp"
 #include "gameplay/bonus_drop_system.hpp"
 
@@ -38,6 +40,32 @@ bool save() {
     return static_cast<bool>(file);
 }
 ::peer* get_peer(ENetEvent& event) { return event.peer && event.peer->data ? static_cast<::peer*>(event.peer->data) : nullptr; }
+void show_main(ENetEvent& event, std::string notice = {}) {
+    if (!get_peer(event)) return;
+    load();
+    std::string d = "add_label_with_icon|big|Bonus Drop Manager|left|32|\n";
+    d += "add_textbox|Configure extra drops when a tile breaks. Each rule rolls independently.|left|\n";
+    if (!notice.empty()) d += std::format("add_textbox|{}|left|\n", ui::sanitize(notice, 160));
+    for (const auto& [tile, entries] : rules) {
+        d += std::format("add_label_with_icon|small|Tile {} ({})|left|{}|\n", tile, entries.size(), tile);
+        for (std::size_t i = 0; i < entries.size(); ++i) {
+            const auto& e = entries[i];
+            d += std::format("add_textbox|Drop {}: item {} x{} at {}%|left|\n", i + 1, e.item, e.amount, e.chance);
+            d += std::format("add_button|bonus_remove_{}_{}|Remove drop|noflags|0|0|\n", tile, i + 1);
+        }
+        d += std::format("add_button|bonus_remove_tile_{}|Remove all for tile|noflags|0|0|\n", tile);
+    }
+    d += "add_label|small|Add a drop rule|left|\n";
+    d += "add_text_input|bonus_tile_id|Tile foreground ID:||8|\n";
+    d += "add_text_input|bonus_item_id|Drop item ID:||8|\n";
+    d += "add_text_input|bonus_amount|Amount:|1|4|\n";
+    d += "add_text_input|bonus_chance|Chance percent:|10|4|\n";
+    d += "add_button|bonus_add_rule|Add rule|noflags|0|0|\n";
+    d += "add_button|bonus_reload|Reload saved rules|noflags|0|0|\n";
+    d += "add_button|bonus_reset_default|Reset to defaults|noflags|0|0|\n";
+    d += "add_quick_exit|\nend_dialog|bonus_main_menu||Close|\n";
+    send_varlist(event.peer, {"OnDialogRequest", std::move(d)});
+}
 }
 void command(ENetEvent& event, std::string_view text) {
     auto* p = get_peer(event);
@@ -47,6 +75,7 @@ void command(ENetEvent& event, std::string_view text) {
     std::string command_name, operation;
     in >> command_name >> operation;
     load();
+    if (operation.empty()) { show_main(event); return; }
     if (operation == "list") {
         int tile{}; in >> tile;
         auto it = rules.find(tile);
@@ -95,4 +124,58 @@ void on_block_broken(ENetEvent& event, int tile_id, const ::pos& position, ::wor
         if (item_registry::exists(static_cast<u_short>(e.item)) && RandomRange(0, 100) < e.chance)
             add_drop(event, ::slot(static_cast<short>(e.item), static_cast<short>(e.amount)), position, world);
 }
+
+void handle_dialog_return(ENetEvent& event, const ::hPipe& pipe) {
+    auto* p = get_peer(event);
+    if (!p || p->role != DEVELOPER) return;
+    const std::string button = pipe["buttonClicked"];
+    load();
+    if (button == "bonus_add_rule") {
+        int tile{}, item{}, amount{}, chance{};
+        const std::string a = pipe["bonus_tile_id"], b = pipe["bonus_item_id"];
+        const std::string c = pipe["bonus_amount"], d = pipe["bonus_chance"];
+        auto parse = [](const std::string& v, int& out) {
+            const auto [end, ec] = std::from_chars(v.data(), v.data() + v.size(), out);
+            return !v.empty() && ec == std::errc{} && end == v.data() + v.size();
+        };
+        if (!parse(a, tile) || !parse(b, item) || !parse(c, amount) || !parse(d, chance) ||
+            !item_registry::exists(static_cast<u_short>(tile)) || !item_registry::exists(static_cast<u_short>(item)) ||
+            amount < 1 || amount > 200 || chance < 1 || chance > 100) {
+            show_main(event, "Enter valid item IDs, amount 1-200, and chance 1-100."); return;
+        }
+        rules[tile].push_back({item, amount, chance});
+        if (!save()) { rules[tile].pop_back(); if (rules[tile].empty()) rules.erase(tile); show_main(event, "Could not save the rule."); return; }
+        show_main(event, "Bonus drop rule added."); return;
+    }
+    if (button == "bonus_reload") { rules.clear(); loaded = false; load(); show_main(event, "Configuration reloaded."); return; }
+    if (button == "bonus_reset_default") {
+        auto previous = rules;
+        rules.clear(); rules[2] = {{242, 1, 10}, {500, 1, 5}};
+        if (!save()) { rules = std::move(previous); show_main(event, "Could not save defaults."); return; }
+        show_main(event, "Default rules restored for tile 2."); return;
+    }
+    constexpr std::string_view prefix = "bonus_remove_";
+    if (!button.starts_with(prefix)) return;
+    const std::string_view suffix(button.data() + prefix.size(), button.size() - prefix.size());
+    const auto sep = suffix.find('_');
+    const auto tile_part = suffix.substr(0, sep);
+    int tile{};
+    const auto [tile_end, tile_ec] = std::from_chars(tile_part.data(), tile_part.data() + tile_part.size(), tile);
+    if (tile_ec != std::errc{} || tile_end != tile_part.data() + tile_part.size()) { show_main(event); return; }
+    auto it = rules.find(tile);
+    if (it == rules.end()) { show_main(event, "That rule no longer exists."); return; }
+    auto previous = rules;
+    if (sep == std::string_view::npos) rules.erase(it);
+    else {
+        const auto value = suffix.substr(sep + 1);
+        int index{};
+        const auto [end, ec] = std::from_chars(value.data(), value.data() + value.size(), index);
+        if (ec != std::errc{} || end != value.data() + value.size() || index < 1 || index > static_cast<int>(it->second.size())) { show_main(event); return; }
+        it->second.erase(it->second.begin() + index - 1);
+        if (it->second.empty()) rules.erase(it);
+    }
+    if (!save()) { rules = std::move(previous); show_main(event, "Could not save the change."); return; }
+    show_main(event, "Bonus drop rule removed.");
+}
+
 }
