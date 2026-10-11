@@ -115,7 +115,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
             "/setrole <UID> <role> /setlevel <player|UID> <level> /givetitle <player|me> <id> "
             "/on /online /weather <id> /ghost /punch <id> /content [/validate] /contentui /1hit "
             "/reload <items|content|store|holiday|all> "
-            "/startmultiplier <gem> <xp> <seconds> /stopmultiplier");
+            "/startmultiplier <gem> <xp> <seconds> /stopmultiplier /bonusdrop <tile> <item> <amount> <chance> /manageexchange");
     }
 };
 
