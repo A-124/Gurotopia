@@ -225,7 +225,8 @@ void peer::mysql_select_all()
 
 void peer::load(const std::string &growid, const std::string &password)
 {
-    if (!this->exists(growid)) 
+    const bool created_account = !this->exists(growid);
+    if (created_account)
     {
         this->mysql_insert("growid", growid);
         this->mysql_update("password", password);
@@ -237,6 +238,18 @@ void peer::load(const std::string &growid, const std::string &password)
         this->mysql_update<std::vector<u_char>>("inventory", this->serialize_inventory().data());
     }
     this->mysql_select_all();
+
+    // Native port of 1devlogsregister.lua. Gurotopia stores no verified client IP/RID
+    // fields on peer, so only disclose the new account's GrowID and UID to developers.
+    if (created_account)
+    {
+        for (ENetPeer *candidate : peers())
+        {
+            auto *staff = candidate && candidate->data ? static_cast<::peer*>(candidate->data) : nullptr;
+            if (staff && staff != this && staff->role == DEVELOPER && !staff->growid.empty())
+                on::ConsoleMessage(candidate, std::format("New account registered: {} (UID {}).", this->growid, this->user_id));
+        }
+    }
 }
 
 void peer::update_display_growid()
@@ -346,13 +359,12 @@ std::string peer::nametag() const
               : this->role == MODERATOR ? std::format("`c{}``", this->nick) : this->nick;
 
     const std::string tag = this->title_enabled ? title_system::tag(*this) : std::string{};
-    if (tag.empty()) return shown;
-
-    // @note the client recolours a plain name with its own base colour (level 125 players get cyan) and also
-    //       after every "``" reset. With a title worn every part gets an explicit colour, so the title keeps
-    //       its own colour (Developer stays black) and the name keeps its role colour (white for players).
-    const bool coloured = !shown.empty() && shown.front() == '`';
-    return tag + (coloured ? shown : std::format("`w{}``", shown));
+    // Explicitly colour ordinary names too: otherwise the client applies its built-in
+    // level-125 cyan/Platinum name colour even when the player has no custom title.
+    const bool coloured = !shown.empty() && shown.front() == '\x60';
+    const std::string explicit_name = coloured ? shown : std::format("\x60w{}", shown);
+    if (tag.empty()) return explicit_name;
+    return tag + explicit_name;
 }
 
 void peer::save_moderation()

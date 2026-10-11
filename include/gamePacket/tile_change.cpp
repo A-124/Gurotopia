@@ -17,6 +17,7 @@
 #include "database/custom_content.hpp"
 #include "core/event_bus.hpp"
 #include "commands/moderation.hpp" // @note username_for_uid()
+#include "gameplay/bonus_drop_system.hpp"
 
 #include "tile_change.hpp"
 
@@ -42,6 +43,17 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
         }
 
         ::block &block = world->blocks[cord(gamePacket.punch.x, gamePacket.punch.y)];
+
+        // Port of lock_display_byLvy.lua: keep valuable currency locks out of display blocks.
+        // Validate the held item before the placement path mutates the tile or inventory.
+        if (block.fg == 2946 &&
+            (gamePacket.id == 242 || gamePacket.id == 1796 ||
+             gamePacket.id == 7188 || gamePacket.id == 20628))
+        {
+            on::ConsoleMessage(event.peer,
+                "`4World Locks, Diamond Locks, Blue Gem Locks and Black Blue Gem Locks cannot be placed in Display Blocks.``");
+            return;
+        }
 
         const ::item &item = id_to_item((gamePacket.id != 32 && gamePacket.id != 18) ? gamePacket.id : (block.fg != 0) ? block.fg : block.bg);
         if (item.id == 0) return;
@@ -355,14 +367,6 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 case type::PINATA:
                 case type::VALHOWLA_TREASURE:
                     break; // @note break-loot handled below like normal blocks (Lucky granted on break)
-                case type::DONATION_BOX:
-                {
-                    // @note items.dat: "People can drop gifts into this box for you to pickup later!"
-                    // @todo real donation storage (drop items in, owner picks up later).
-                    if (block.hits[0] == 0)
-                        on::ConsoleMessage(event.peer, "`oDrop items here for the owner to pick up later. (Donation storage coming soon.)``");
-                    break;
-                }
                 case type::MAILBOX:
                 {
                     // @note items.dat: "You've got mail! People can write you private messages with this."
@@ -401,6 +405,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 block.hits[hit_layer] = static_cast<u_char>(item.hits - 1);
             }
 
+            const ::pos broken_position = gamePacket.punch.by_32();
             tile_apply_damage(event, std::move(gamePacket), block, apply_damage_value);
 
             if (block.hits[0] >= item.hits) block.fg = 0, block.hits[0] = 0, block.last_hit[0] = 0;
@@ -430,6 +435,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
             }
 
             world->save_blocks();
+            bonus_drop_system::on_block_broken(event, item.id, broken_position, *world);
             event_bus::emit({ event_bus::type::block_changed, event.peer, {}, item.id, 1 }); // @note quests & achievements
 
             /* @todo update these changes with tile_update() */

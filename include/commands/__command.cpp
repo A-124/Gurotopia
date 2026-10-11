@@ -31,6 +31,9 @@
 #include "extras.hpp"
 #include "gameplay/welcome_system.hpp"
 #include "staff_tools.hpp"
+#include "gameplay/gacha_system.hpp"
+#include "gameplay/bonus_drop_system.hpp"
+#include "gameplay/item_exchange_system.hpp"
 
 /* emote commands all dispatch to on::Action. listed once here so the
  * cmd_pool registration and the /help text stay in sync automatically. */
@@ -88,7 +91,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
     // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
     std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
         "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily [claim] /titles /leaderboard /playtime /notebook "
-        "/msg <player> <message> /r <message> /mods /rules /worldinfo /roll [sides] /flip /ping /uptime /count /status /welcome";
+        "/msg <player> <message> /r <message> /mods /rules /worldinfo /roll [sides] /flip /ping /uptime /count /status /welcome /gacha /exchange /lsb <message>";
 
     for (std::string_view emote : emotes)
         player_commands += std::format(" /{}", emote);
@@ -100,7 +103,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
     {
         send_action(*event.peer, "log", "msg|>> `cModerator Cmd:");
         send_action(*event.peer, "log",
-            "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID> /mute <player> [minutes] /unmute <player> /pinfo <player> /nick <name> /default");
+            "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID> /mute <player> [minutes] /unmute <player> /pinfo <player> /nick <name> /default /scanitem");
     }
 
     if (pPeer->role == DEVELOPER)
@@ -111,7 +114,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
             "/setrole <UID> <role> /setlevel <player|UID> <level> /givetitle <player|me> <id> "
             "/on /online /weather <id> /ghost /punch <id> /content [/validate] /contentui /1hit "
             "/reload <items|content|store|holiday|all> "
-            "/startmultiplier <gem> <xp> <seconds> /stopmultiplier");
+            "/startmultiplier <gem> <xp> <seconds> /stopmultiplier /bonusdrop (manager) /manageexchange (manager)");
     }
 };
 
@@ -178,6 +181,12 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"ping", &command_ping},
         {"uptime", &command_uptime},
         {"count", &command_count},
+        {"gacha", &gacha_system::command},
+        {"bonusdrop", &bonus_drop_system::command},
+        {"exchange", &item_exchange_system::command},
+        {"manageexchange", &item_exchange_system::manage_command},
+        {"lsb", &command_lsb},
+        {"scanitem", &command_scanitem},
         {"mute", &command_mute},
         {"unmute", &command_unmute},
         {"pinfo", &command_pinfo},

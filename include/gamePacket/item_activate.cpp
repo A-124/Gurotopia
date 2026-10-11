@@ -27,11 +27,11 @@ void item_activate(ENetEvent& event, ::gamePacket gamePacket)
         send_varlist(event.peer, { "OnEquipNewItem", gamePacket.id }, pPeer->netid);
         on::SetClothing(*event.peer); // @todo
     }
-    else 
+    else
     {
         const auto item = std::ranges::find(pPeer->slots, gamePacket.id, &::slot::id);
-        if (item == pPeer->slots.end()) return;
-        
+        if (item == pPeer->slots.end() || item->count <= 0) return;
+
         if (item->id == 242 && item->count >= 100) 
         {
             const u_short nokori = modify_item_inventory(event, {1796, 1});
