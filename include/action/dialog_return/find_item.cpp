@@ -1,5 +1,5 @@
 #include "pch.hpp"
-#include "find.hpp"
+#include "commands/find.hpp"
 #include "find_item.hpp"
 
 void find_item(ENetEvent& event, const ::hPipe& pipe)
