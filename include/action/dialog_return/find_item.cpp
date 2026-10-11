@@ -1,4 +1,5 @@
 #include "pch.hpp"
+#include <charconv>
 #include "database/item_registry.hpp"
 #include "find_item.hpp"
 
