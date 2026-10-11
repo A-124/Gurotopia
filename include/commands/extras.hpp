@@ -10,3 +10,5 @@ extern void command_count(ENetEvent&, std::string_view);   // /count          pl
 extern void command_rainbow(ENetEvent&, std::string_view); // /rainbow toggles a session-only rainbow nickname
 
 extern void command_lsb(ENetEvent&, std::string_view); // /lsb legendary-item global broadcast with cooldown
+
+extern void command_scanitem(ENetEvent&, std::string_view); // /scanitem configures and scans online inventories
