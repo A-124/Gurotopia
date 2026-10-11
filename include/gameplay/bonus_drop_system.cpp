@@ -5,6 +5,7 @@
 #include <map>
 #include "database/peer.hpp"
 #include "database/world.hpp"
+#include "database/item_registry.hpp"
 #include "onVariant/ConsoleMessage.hpp"
 #include "tools/ui.hpp"
 #include "tools/random.hpp"
@@ -154,10 +155,12 @@ void handle_dialog_return(ENetEvent& event, const ::hPipe& pipe) {
         if (!save()) { rules = std::move(previous); show_main(event, "Could not save defaults."); return; }
         show_main(event, "Default rules restored for tile 2."); return;
     }
+    constexpr std::string_view tile_prefix = "bonus_remove_tile_";
     constexpr std::string_view prefix = "bonus_remove_";
-    if (!button.starts_with(prefix)) return;
-    const std::string_view suffix(button.data() + prefix.size(), button.size() - prefix.size());
-    const auto sep = suffix.find('_');
+    const bool remove_tile = button.starts_with(tile_prefix);
+    if (!remove_tile && !button.starts_with(prefix)) return;
+    const std::string_view suffix(button.data() + (remove_tile ? tile_prefix.size() : prefix.size()), button.size() - (remove_tile ? tile_prefix.size() : prefix.size()));
+    const auto sep = remove_tile ? std::string_view::npos : suffix.find('_');
     const auto tile_part = suffix.substr(0, sep);
     int tile{};
     const auto [tile_end, tile_ec] = std::from_chars(tile_part.data(), tile_part.data() + tile_part.size(), tile);
@@ -165,7 +168,7 @@ void handle_dialog_return(ENetEvent& event, const ::hPipe& pipe) {
     auto it = rules.find(tile);
     if (it == rules.end()) { show_main(event, "That rule no longer exists."); return; }
     auto previous = rules;
-    if (sep == std::string_view::npos) rules.erase(it);
+    if (remove_tile) rules.erase(it);
     else {
         const auto value = suffix.substr(sep + 1);
         int index{};
