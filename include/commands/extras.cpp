@@ -180,7 +180,7 @@ namespace
     {
         const auto id = load_scanned_item();
         std::string d = "add_label_with_icon|big|Item Scanner|left|32|\n";
-        d += "add_textbox|Register an item and scan online player inventories. The scanner reads online inventories and saved offline player inventory blobs; it does not yet count items stored in world objects.|left|\n";
+        d += "add_textbox|Register an item and scan online player inventories. The scanner reads online and saved offline player inventories plus loaded world objects, display blocks, and vending stock.|left|\n";
         if (!notice.empty()) d += std::format("add_textbox|{}|left|\n", ui::sanitize(notice, 180));
         if (id) {
             d += std::format("add_label_with_icon|small|Tracked: {} (ID {})|left|{}|\n", scan_item_name(*id), *id, *id);
@@ -250,15 +250,35 @@ namespace
                 mysql_free_result(result);
             }
         }
+        std::vector<std::pair<std::string, long long>> world_holders;
+        long long world_total = 0;
+        for (const auto& world : worlds) {
+            long long amount = 0;
+            for (const auto& object : world.objects)
+                if (object.id == id && object.count > 0) amount += object.count;
+            for (const auto& display : world.displays)
+                if (display.id == id) ++amount;
+            for (const auto& machine : world.vending_machines)
+                if (machine.item_id == id && machine.stock > 0) amount += machine.stock;
+            if (amount > 0) { world_holders.emplace_back(world.name, amount); world_total += amount; }
+        }
         std::ranges::sort(found, [](const auto& a, const auto& b) { return a.second > b.second; });
-        const long long total = online_total + offline_total;
+        std::ranges::sort(world_holders, [](const auto& a, const auto& b) { return a.second > b.second; });
+        const long long total = online_total + offline_total + world_total;
         std::string d = std::format("add_label_with_icon|big|Scan Results: {}|left|{}|\n", scan_item_name(id), id);
-        d += std::format("add_textbox|Online: {} holders / {} items. Offline: {} holders / {} items.|left|\n", online_holders, online_total, offline_holders, offline_total);
-        d += std::format("add_textbox|Total saved inventory quantity: {}|left|\n", total);
+        d += std::format("add_textbox|Online players: {} holders / {} items. Offline players: {} holders / {} items.|left|\n", online_holders, online_total, offline_holders, offline_total);
+        d += std::format("add_textbox|Loaded world objects, displays and vending stock: {} items across {} worlds.|left|\n", world_total, world_holders.size());
+        d += std::format("add_textbox|Combined scanned quantity: {}|left|\n", total);
         if (found.empty()) d += "add_textbox|No online or offline player inventories currently hold this item.|left|\n";
         for (std::size_t i = 0; i < std::min<std::size_t>(found.size(), 50); ++i)
             d += std::format("add_textbox|{}: {}|left|\n", ui::sanitize(found[i].first, 48), found[i].second);
-        if (found.size() > 50) d += std::format("add_smalltext|{} more holder(s) omitted.|left|\n", found.size() - 50);
+        if (found.size() > 50) d += std::format("add_smalltext|{} more player holder(s) omitted.|left|\n", found.size() - 50);
+        if (!world_holders.empty()) {
+            d += "add_spacer|small|\nadd_label|small|World holders|left|\n";
+            for (std::size_t i = 0; i < std::min<std::size_t>(world_holders.size(), 20); ++i)
+                d += std::format("add_textbox|{}: {}|left|\n", ui::sanitize(world_holders[i].first, 48), world_holders[i].second);
+            if (world_holders.size() > 20) d += std::format("add_smalltext|{} more world(s) omitted.|left|\n", world_holders.size() - 20);
+        }
         d += "add_button|scanitem_back|Back to scanner|noflags|0|0|\nend_dialog|scanitem_results||Close|\n";
         send_varlist(event.peer, {"OnDialogRequest", std::move(d)});
     }
