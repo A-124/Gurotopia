@@ -32,24 +32,6 @@ void item_activate(ENetEvent& event, ::gamePacket gamePacket)
         const auto item = std::ranges::find(pPeer->slots, gamePacket.id, &::slot::id);
         if (item == pPeer->slots.end() || item->count <= 0) return;
 
-        // Native C++ port of modtoken.lua. The Lua API's numeric role IDs differ
-        // from Gurotopia's enum, so use the server's actual MODERATOR constant.
-        // A token only upgrades a regular player; it cannot overwrite staff.
-        if (item->id == 25168)
-        {
-            if (pPeer->role != PLAYER)
-            {
-                on::ConsoleMessage(event.peer, "This token can only be used by regular players.");
-                return;
-            }
-
-            modify_item_inventory(event, {25168, -1});
-            pPeer->role = MODERATOR;
-            pPeer->mysql_update<signed>("role", static_cast<signed>(MODERATOR));
-            on::ConsoleMessage(event.peer, "Your role has been upgraded to Moderator!");
-            return;
-        }
-
         if (item->id == 242 && item->count >= 100) 
         {
             const u_short nokori = modify_item_inventory(event, {1796, 1});
