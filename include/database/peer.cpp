@@ -225,7 +225,8 @@ void peer::mysql_select_all()
 
 void peer::load(const std::string &growid, const std::string &password)
 {
-    if (!this->exists(growid)) 
+    const bool created_account = !this->exists(growid);
+    if (created_account)
     {
         this->mysql_insert("growid", growid);
         this->mysql_update("password", password);
@@ -237,6 +238,18 @@ void peer::load(const std::string &growid, const std::string &password)
         this->mysql_update<std::vector<u_char>>("inventory", this->serialize_inventory().data());
     }
     this->mysql_select_all();
+
+    // Native port of 1devlogsregister.lua. Gurotopia stores no verified client IP/RID
+    // fields on peer, so only disclose the new account's GrowID and UID to developers.
+    if (created_account)
+    {
+        for (ENetPeer *candidate : peers())
+        {
+            auto *staff = candidate && candidate->data ? static_cast<::peer*>(candidate->data) : nullptr;
+            if (staff && staff != this && staff->role == DEVELOPER && !staff->growid.empty())
+                on::ConsoleMessage(candidate, std::format("New account registered: {} (UID {}).", this->growid, this->user_id));
+        }
+    }
 }
 
 void peer::update_display_growid()
