@@ -4,6 +4,7 @@
 #include <ctime>
 #include "database/peer.hpp"
 #include "database/item_registry.hpp"
+#include "tools/random.hpp"
 #include "gameplay/gacha_system.hpp"
 
 namespace gacha_system {
