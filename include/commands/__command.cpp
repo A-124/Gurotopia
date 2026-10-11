@@ -92,7 +92,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
     // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
     std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
         "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily [claim] /titles /leaderboard /playtime /notebook "
-        "/msg <player> <message> /r <message> /mods /rules /worldinfo /roll [sides] /flip /ping /uptime /count /status /welcome";
+        "/msg <player> <message> /r <message> /mods /rules /worldinfo /roll [sides] /flip /ping /uptime /count /status /welcome /gacha /exchange /donate [item_id] [quantity] /lsb <message>";
 
     for (std::string_view emote : emotes)
         player_commands += std::format(" /{}", emote);
@@ -104,7 +104,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
     {
         send_action(*event.peer, "log", "msg|>> `cModerator Cmd:");
         send_action(*event.peer, "log",
-            "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID> /mute <player> [minutes] /unmute <player> /pinfo <player> /nick <name> /default");
+            "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID> /mute <player> [minutes] /unmute <player> /pinfo <player> /nick <name> /default /scanitem");
     }
 
     if (pPeer->role == DEVELOPER)
@@ -115,7 +115,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
             "/setrole <UID> <role> /setlevel <player|UID> <level> /givetitle <player|me> <id> "
             "/on /online /weather <id> /ghost /punch <id> /content [/validate] /contentui /1hit "
             "/reload <items|content|store|holiday|all> "
-            "/startmultiplier <gem> <xp> <seconds> /stopmultiplier /bonusdrop <tile> <item> <amount> <chance> /manageexchange");
+            "/startmultiplier <gem> <xp> <seconds> /stopmultiplier /bonusdrop (manager) /manageexchange (manager)");
     }
 };
 
