@@ -9,4 +9,5 @@ extern void command_count(ENetEvent&, std::string_view);   // /count          pl
 
 extern void command_lsb(ENetEvent&, std::string_view); // /lsb legendary-item global broadcast with cooldown
 
-extern void command_scanitem(ENetEvent&, std::string_view); // /scanitem configures and scans online inventories
+extern void command_scanitem(ENetEvent&, std::string_view); // /scanitem opens staff scanner panel
+extern void handle_scanitem_dialog_return(ENetEvent&, const ::hPipe&);
