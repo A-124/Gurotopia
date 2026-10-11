@@ -6,3 +6,5 @@ extern void command_flip(ENetEvent&, std::string_view);    // /flip           co
 extern void command_ping(ENetEvent&, std::string_view);    // /ping           your connection latency
 extern void command_uptime(ENetEvent&, std::string_view);  // /uptime         how long the server has been running
 extern void command_count(ENetEvent&, std::string_view);   // /count          players online and in your world
+
+extern void command_rainbow(ENetEvent&, std::string_view); // /rainbow toggles a session-only rainbow nickname
