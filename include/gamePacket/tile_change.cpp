@@ -367,11 +367,6 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 case type::PINATA:
                 case type::VALHOWLA_TREASURE:
                     break; // @note break-loot handled below like normal blocks (Lucky granted on break)
-                case type::DONATION_BOX:
-                {
-                    donation_system::open_box(event);
-                    return;
-                }
                 case type::MAILBOX:
                 {
                     // @note items.dat: "You've got mail! People can write you private messages with this."
