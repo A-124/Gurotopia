@@ -18,7 +18,6 @@
 #include "core/event_bus.hpp"
 #include "commands/moderation.hpp" // @note username_for_uid()
 #include "gameplay/bonus_drop_system.hpp"
-#include "gameplay/donation_system.hpp"
 
 #include "tile_change.hpp"
 
@@ -928,11 +927,6 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                         "OnDialogRequest",
                         dialog.end_dialog("display_edit", "Close", "Done")
                     });
-                    break;
-                }
-                case type::DONATION_BOX:
-                {
-                    donation_system::open_box(event);
                     break;
                 }
                 case type::VENDING_MACHINE:
