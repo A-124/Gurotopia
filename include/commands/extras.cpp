@@ -5,6 +5,7 @@
 #include <charconv>
 #include "onVariant/ConsoleMessage.hpp"
 #include "onVariant/AddNotification.hpp"
+#include "database/item_registry.hpp"
 #include "tools/ui.hpp"
 #include "tools/random.hpp"
 #include "gameplay/gacha_system.hpp"
@@ -118,16 +119,75 @@ namespace
     {
         std::ifstream file{"resources/scanitem.txt"};
         int id{};
-        if (!(file >> id) || id <= 0 || id > 32767) return std::nullopt;
+        if (!(file >> id) || id <= 0 || id > 32767 || !item_registry::exists(static_cast<u_short>(id))) return std::nullopt;
         return id;
+    }
+    bool save_scanned_item(int id)
+    {
+        if (id <= 0 || id > 32767 || !item_registry::exists(static_cast<u_short>(id))) return false;
+        std::ofstream file{"resources/scanitem.txt", std::ios::trunc};
+        return file && static_cast<bool>(file << id << '\n');
+    }
+    int item_count(const ::peer& p, int id)
+    {
+        int total = 0;
+        for (const auto& slot : p.slots) if (slot.id == id && slot.count > 0) total += slot.count;
+        return total;
+    }
+    std::string scan_item_name(int id)
+    {
+        if (id > 0 && id < static_cast<int>(items.size())) return id_to_item(static_cast<u_short>(id)).raw_name;
+        return std::format("Item {}", id);
+    }
+    void show_scanitem_panel(ENetEvent& event, std::string notice = {})
+    {
+        const auto id = load_scanned_item();
+        std::string d = "add_label_with_icon|big|Item Scanner|left|32|\n";
+        d += "add_textbox|Register an item and scan online player inventories. Offline/world economy totals are not available in this native server yet.|left|\n";
+        if (!notice.empty()) d += std::format("add_textbox|{}|left|\n", ui::sanitize(notice, 180));
+        if (id) {
+            d += std::format("add_label_with_icon|small|Tracked: {} (ID {})|left|{}|\n", scan_item_name(*id), *id, *id);
+            d += "add_button|scanitem_scan|Scan online players|noflags|0|0|\n";
+            d += "add_button|scanitem_clear|Remove tracked item|noflags|0|0|\n";
+        } else {
+            d += "add_textbox|No item is currently registered.|left|\n";
+        }
+        d += "add_spacer|small|\n";
+        d += "add_text_input|scanitem_item_id|Item ID to track:||8|\n";
+        d += "add_button|scanitem_save|Register item ID|noflags|0|0|\n";
+        d += "add_quick_exit|\nend_dialog|scanitem_main||Close|\n";
+        send_varlist(event.peer, {"OnDialogRequest", std::move(d)});
+    }
+    void show_scanitem_results(ENetEvent& event, int id)
+    {
+        auto* self = self_of(event);
+        if (!self) return;
+        std::vector<std::pair<std::string, int>> found;
+        long long total = 0;
+        for (ENetPeer* candidate : peers()) {
+            auto* target = candidate && candidate->data ? static_cast<::peer*>(candidate->data) : nullptr;
+            if (!target || target->growid.empty()) continue;
+            const int amount = item_count(*target, id);
+            if (amount <= 0) continue;
+            found.emplace_back(target->growid, amount);
+            total += amount;
+        }
+        std::ranges::sort(found, [](const auto& a, const auto& b) { return a.second > b.second; });
+        std::string d = std::format("add_label_with_icon|big|Scan Results: {}|left|{}|\n", scan_item_name(id), id);
+        d += std::format("add_textbox|{} online holders; {} items total.|left|\n", found.size(), total);
+        if (found.empty()) d += "add_textbox|No online players currently hold this item.|left|\n";
+        for (std::size_t i = 0; i < std::min<std::size_t>(found.size(), 50); ++i)
+            d += std::format("add_textbox|{}: {}|left|\n", ui::sanitize(found[i].first, 48), found[i].second);
+        if (found.size() > 50) d += std::format("add_smalltext|{} more holder(s) omitted.|left|\n", found.size() - 50);
+        d += "add_button|scanitem_back|Back to scanner|noflags|0|0|\nend_dialog|scanitem_results||Close|\n";
+        send_varlist(event.peer, {"OnDialogRequest", std::move(d)});
     }
 }
 void command_scanitem(ENetEvent &event, std::string_view text)
 {
     ::peer *self = self_of(event);
     if (!self) return;
-    if (self->role < MODERATOR)
-    {
+    if (self->role < MODERATOR) {
         on::ConsoleMessage(event.peer, "Only staff can use /scanitem.");
         return;
     }
@@ -135,41 +195,39 @@ void command_scanitem(ENetEvent &event, std::string_view text)
     std::string_view arg = split == std::string_view::npos ? std::string_view{} : text.substr(split + 1);
     while (!arg.empty() && std::isspace(static_cast<unsigned char>(arg.front()))) arg.remove_prefix(1);
     while (!arg.empty() && std::isspace(static_cast<unsigned char>(arg.back()))) arg.remove_suffix(1);
-    if (!arg.empty())
-    {
+    if (!arg.empty()) {
         int id{};
         const auto [end, ec] = std::from_chars(arg.data(), arg.data() + arg.size(), id);
-        if (ec != std::errc{} || end != arg.data() + arg.size() || id <= 0 || id > 32767)
-        {
-            on::ConsoleMessage(event.peer, "Usage: /scanitem [item_id]");
+        if (ec != std::errc{} || end != arg.data() + arg.size() || !save_scanned_item(id)) {
+            on::ConsoleMessage(event.peer, "Usage: /scanitem [valid_item_id]");
             return;
         }
-        std::ofstream file{"resources/scanitem.txt", std::ios::trunc};
-        if (!file || !(file << id << '\n'))
-        {
-            on::ConsoleMessage(event.peer, "Could not save resources/scanitem.txt.");
+        show_scanitem_panel(event, std::format("Now tracking {} (ID {}).", scan_item_name(id), id));
+        return;
+    }
+    show_scanitem_panel(event);
+}
+void handle_scanitem_dialog_return(ENetEvent& event, const ::hPipe& pipe)
+{
+    auto* self = self_of(event);
+    if (!self || self->role < MODERATOR) return;
+    const std::string button = pipe["buttonClicked"];
+    if (button == "scanitem_save") {
+        const std::string raw = pipe["scanitem_item_id"];
+        int id{};
+        const auto [end, ec] = std::from_chars(raw.data(), raw.data() + raw.size(), id);
+        if (ec != std::errc{} || end != raw.data() + raw.size() || !save_scanned_item(id)) {
+            show_scanitem_panel(event, "Enter a valid item ID that exists in the item database.");
             return;
         }
-        on::ConsoleMessage(event.peer, std::format("Item scanner now tracks item ID {}.", id));
-        return;
-    }
-    const auto id = load_scanned_item();
-    if (!id)
-    {
-        on::ConsoleMessage(event.peer, "No tracked item configured. Use /scanitem <item_id>.");
-        return;
-    }
-    std::size_t holders = 0;
-    long long total = 0;
-    for (ENetPeer *candidate : peers())
-    {
-        auto *target = candidate ? static_cast<::peer*>(candidate->data) : nullptr;
-        if (!target || target->growid.empty()) continue;
-        const auto slot = std::ranges::find(target->slots, static_cast<short>(*id), &::slot::id);
-        if (slot == target->slots.end() || slot->count <= 0) continue;
-        ++holders;
-        total += slot->count;
-        on::ConsoleMessage(event.peer, std::format("{} has {} of item {}.", target->growid, slot->count, *id));
-    }
-    on::ConsoleMessage(event.peer, std::format("Scan complete: {} online holders, {} total items (ID {}).", holders, total, *id));
+        show_scanitem_panel(event, std::format("Registered {} (ID {}).", scan_item_name(id), id));
+    } else if (button == "scanitem_clear") {
+        std::error_code ec;
+        std::filesystem::remove("resources/scanitem.txt", ec);
+        show_scanitem_panel(event, ec ? "Could not remove the tracked item file." : "Tracked item removed.");
+    } else if (button == "scanitem_scan") {
+        const auto id = load_scanned_item();
+        if (!id) { show_scanitem_panel(event, "Register an item first."); return; }
+        show_scanitem_results(event, *id);
+    } else if (button == "scanitem_back") show_scanitem_panel(event);
 }
