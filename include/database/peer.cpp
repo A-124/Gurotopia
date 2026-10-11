@@ -341,6 +341,23 @@ void peer::save_profile()
 std::string peer::nametag() const
 {
     std::string shown = this->display_growid;
+    if (this->rainbow_name && this->nick.empty())
+    {
+        static constexpr std::array<std::string_view, 10> colours{
+            "`$","`^","`2","`3","`4","`5","`6","`9","`o","`w"
+        };
+        std::string rainbow;
+        rainbow.reserve(this->display_growid.size() * 4);
+        std::size_t colour = 0;
+        for (unsigned char ch : this->display_growid)
+        {
+            if (ch == '`') continue; // don't let an existing format sequence corrupt the name
+            rainbow += colours[colour++ % colours.size()];
+            rainbow += static_cast<char>(ch);
+        }
+        rainbow += "``";
+        shown = std::move(rainbow);
+    }
     if (!this->nick.empty()) // @note staff /nick: keep the role colour so the name still looks official
         shown = this->role == DEVELOPER ? std::format("`6{}``", this->nick)
               : this->role == MODERATOR ? std::format("`c{}``", this->nick) : this->nick;
