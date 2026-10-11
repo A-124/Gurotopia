@@ -22,6 +22,7 @@
 #include "commands/help.hpp"
 #include "gameplay/welcome_system.hpp"
 #include "gameplay/gacha_system.hpp"
+#include "gameplay/item_exchange_system.hpp"
 
 #include "__dialog_return.hpp"
 
@@ -61,5 +62,6 @@ std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)
     {"gurotopia_gacha", std::bind(&gacha_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_gacha_history", std::bind(&gacha_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_gacha_result", std::bind(&gacha_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
+    {"gurotopia_exchange", std::bind(&item_exchange_system::handle_dialog_return, std::placeholders::_1, std::placeholders::_2)},
     {"gurotopia_content", std::bind(&handle_content_dialog_return, std::placeholders::_1, std::placeholders::_2)},
 };
