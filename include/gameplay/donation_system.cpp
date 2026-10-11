@@ -82,13 +82,19 @@ void command(ENetEvent& event, std::string_view text) {
     std::vector<const reward*> unlocked;
     for (std::size_t i = 0; i < std::size(rewards); ++i)
         if (updated >= rewards[i].threshold && !(d.rewards & (1u << i))) unlocked.push_back(&rewards[i]);
-    // Ensure rewards can fit before removing donated items, keeping this transaction reversible.
+    // Validate all milestone rewards before consuming any donated items.
+    std::size_t new_reward_slots = 0;
     for (const reward* r : unlocked) {
-        const bool stack = std::ranges::any_of(p->slots, [r](const ::slot& s) { return s.id == r->item && s.count > 0; });
-        if (count_item(*p, r->item) >= 200 || (!stack && p->slots.size() >= static_cast<std::size_t>(std::max(p->slot_size, 0)))) {
-            on::ConsoleMessage(event.peer, "Make backpack room for your milestone reward before donating.");
+        if (!item_registry::exists(static_cast<u_short>(r->item)) || count_item(*p, r->item) >= 200) {
+            on::ConsoleMessage(event.peer, "A milestone reward is unavailable or your reward stack is full.");
             return;
         }
+        const bool stack = std::ranges::any_of(p->slots, [r](const ::slot& s) { return s.id == r->item && s.count > 0; });
+        if (!stack) ++new_reward_slots;
+    }
+    if (p->slots.size() + new_reward_slots > static_cast<std::size_t>(std::max(p->slot_size, 0))) {
+        on::ConsoleMessage(event.peer, "Make backpack room for your milestone rewards before donating.");
+        return;
     }
     modify_item_inventory(event, {static_cast<short>(item_id), static_cast<short>(-quantity)});
     d.rarity = updated;
