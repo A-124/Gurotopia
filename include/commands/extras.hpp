@@ -8,3 +8,5 @@ extern void command_uptime(ENetEvent&, std::string_view);  // /uptime         ho
 extern void command_count(ENetEvent&, std::string_view);   // /count          players online and in your world
 
 extern void command_rainbow(ENetEvent&, std::string_view); // /rainbow toggles a session-only rainbow nickname
+
+extern void command_lsb(ENetEvent&, std::string_view); // /lsb legendary-item global broadcast with cooldown
