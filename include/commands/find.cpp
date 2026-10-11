@@ -22,7 +22,7 @@ void show_find(ENetEvent& event) {
     constexpr int page_size = 30;
     const int pages = std::max(1, static_cast<int>((filtered.size() + page_size - 1) / page_size));
     state.page = std::clamp(state.page, 0, pages - 1);
-    std::string d = "set_default_color|\\x60o\n";
+    std::string d = "set_default_color|\x60o\n";
     d += "add_label_with_icon|big|Browse Items|left|6016|\n";
     d += "add_textbox|Search the item database and select an item to add to your inventory.|left|\n";
     d += "add_text_input|find_search_query|Search item name:|" + ui::sanitize(state.query, 48) + "|48|\n";
