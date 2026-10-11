@@ -18,9 +18,14 @@ void load() {
     if (loaded) return;
     loaded = true;
     std::ifstream file("resources/bonus_drops.txt");
+    if (!file) {
+        rules[2] = {{242, 1, 10}, {500, 1, 5}};
+        save();
+        return;
+    }
     int tile{}, item{}, amount{}, chance{};
     while (file >> tile >> item >> amount >> chance) {
-        if (tile > 0 && tile <= 32767 && item > 0 && item <= 32767 &&
+        if (tile > 0 && tile <= 32767 && item > 0 && item <= 32767 && item_registry::exists(static_cast<u_short>(item)) &&
             amount > 0 && amount <= 200 && chance >= 1 && chance <= 100)
             rules[tile].push_back({item, amount, chance});
     }
@@ -74,7 +79,7 @@ void command(ENetEvent& event, std::string_view text) {
         return;
     }
     in >> item >> amount >> chance;
-    if (!in || tile <= 0 || tile > 32767 || item <= 0 || item > 32767 || amount < 1 || amount > 200 || chance < 1 || chance > 100) {
+    if (!in || tile <= 0 || tile > 32767 || !item_registry::exists(static_cast<u_short>(tile)) || item <= 0 || item > 32767 || !item_registry::exists(static_cast<u_short>(item)) || amount < 1 || amount > 200 || chance < 1 || chance > 100) {
         on::ConsoleMessage(event.peer, "Usage: /bonusdrop <tile_id> <drop_item_id> <amount> <chance_percent> (chance 1-100).");
         return;
     }
@@ -87,7 +92,7 @@ void on_block_broken(ENetEvent& event, int tile_id, const ::pos& position, ::wor
     auto it = rules.find(tile_id);
     if (it == rules.end()) return;
     for (const auto& e : it->second)
-        if (RandomRange(0, 100) < e.chance)
+        if (item_registry::exists(static_cast<u_short>(e.item)) && RandomRange(0, 100) < e.chance)
             add_drop(event, ::slot(static_cast<short>(e.item), static_cast<short>(e.amount)), position, world);
 }
 }
