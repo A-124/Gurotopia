@@ -4,7 +4,6 @@
 #include <fstream>
 #include <charconv>
 #include "onVariant/ConsoleMessage.hpp"
-#include "onVariant/NameChanged.hpp"
 #include "tools/ui.hpp"
 #include "tools/random.hpp"
 #include "extras.hpp"
@@ -62,22 +61,6 @@ void command_count(ENetEvent &event, std::string_view)
         if (self->netid != 0 && !self->recent_worlds.back().empty() && p->recent_worlds.back() == self->recent_worlds.back()) ++here;
     }
     on::ConsoleMessage(event.peer, std::format("`oPlayers online: `w{}``   In your world: `w{}``", online, here));
-}
-
-void command_rainbow(ENetEvent &event, std::string_view)
-{
-    ::peer *self = self_of(event);
-    if (!self) return;
-    if (!self->nick.empty())
-    {
-        on::ConsoleMessage(event.peer, "Clear your custom staff nickname before using /rainbow.");
-        return;
-    }
-    self->rainbow_name = !self->rainbow_name;
-    on::NameChanged(event);
-    on::ConsoleMessage(event.peer, self->rainbow_name
-        ? "Rainbow nickname enabled for this session."
-        : "Rainbow nickname disabled.");
 }
 
 namespace
