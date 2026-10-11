@@ -6,6 +6,7 @@
 #include "onVariant/ConsoleMessage.hpp"
 #include "tools/ui.hpp"
 #include "tools/random.hpp"
+#include "gameplay/gacha_system.hpp"
 #include "extras.hpp"
 
 namespace
