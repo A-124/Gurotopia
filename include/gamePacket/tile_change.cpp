@@ -17,6 +17,7 @@
 #include "database/custom_content.hpp"
 #include "core/event_bus.hpp"
 #include "commands/moderation.hpp" // @note username_for_uid()
+#include "gameplay/bonus_drop_system.hpp"
 
 #include "tile_change.hpp"
 
@@ -412,6 +413,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 block.hits[hit_layer] = static_cast<u_char>(item.hits - 1);
             }
 
+            const ::pos broken_position = gamePacket.punch.by_32();
             tile_apply_damage(event, std::move(gamePacket), block, apply_damage_value);
 
             if (block.hits[0] >= item.hits) block.fg = 0, block.hits[0] = 0, block.last_hit[0] = 0;
@@ -441,6 +443,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
             }
 
             world->save_blocks();
+            bonus_drop_system::on_block_broken(event, item.id, broken_position, *world);
             event_bus::emit({ event_bus::type::block_changed, event.peer, {}, item.id, 1 }); // @note quests & achievements
 
             /* @todo update these changes with tile_update() */
