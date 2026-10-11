@@ -4,6 +4,7 @@
 #include <fstream>
 #include <charconv>
 #include <filesystem>
+#include <unordered_set>
 #include "onVariant/ConsoleMessage.hpp"
 #include "onVariant/AddNotification.hpp"
 #include "database/item_registry.hpp"
@@ -179,7 +180,7 @@ namespace
     {
         const auto id = load_scanned_item();
         std::string d = "add_label_with_icon|big|Item Scanner|left|32|\n";
-        d += "add_textbox|Register an item and scan online player inventories. Offline/world economy totals are not available in this native server yet.|left|\n";
+        d += "add_textbox|Register an item and scan online player inventories. The scanner reads online inventories and saved offline player inventory blobs; it does not yet count items stored in world objects.|left|\n";
         if (!notice.empty()) d += std::format("add_textbox|{}|left|\n", ui::sanitize(notice, 180));
         if (id) {
             d += std::format("add_label_with_icon|small|Tracked: {} (ID {})|left|{}|\n", scan_item_name(*id), *id, *id);
@@ -200,19 +201,61 @@ namespace
         auto* self = self_of(event);
         if (!self) return;
         std::vector<std::pair<std::string, int>> found;
-        long long total = 0;
+        std::unordered_set<std::string> online_names;
+        long long online_total = 0, offline_total = 0;
+        std::size_t online_holders = 0, offline_holders = 0;
         for (ENetPeer* candidate : peers()) {
             auto* target = candidate && candidate->data ? static_cast<::peer*>(candidate->data) : nullptr;
             if (!target || target->growid.empty()) continue;
+            std::string key = target->growid;
+            std::ranges::transform(key, key.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+            online_names.insert(key);
             const int amount = item_count(*target, id);
             if (amount <= 0) continue;
             found.emplace_back(target->growid, amount);
-            total += amount;
+            online_total += amount;
+            ++online_holders;
+        }
+        // The inventory blob is: int slot_size, short slot_count, then (short item_id, short count) pairs.
+        // Scan saved inventories too, excluding online GrowIDs so they are not double-counted.
+        if (db && mysql_query(db, "SELECT growid, inventory FROM peer") == 0) {
+            if (MYSQL_RES* result = mysql_store_result(db)) {
+                while (MYSQL_ROW row = mysql_fetch_row(result)) {
+                    if (!row[0] || !row[1]) continue;
+                    std::string name = row[0];
+                    std::string key = name;
+                    std::ranges::transform(key, key.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+                    if (online_names.contains(key)) continue;
+                    unsigned long* lengths = mysql_fetch_lengths(result);
+                    if (!lengths || lengths[1] < sizeof(int) + sizeof(short)) continue;
+                    const auto* bytes = reinterpret_cast<const unsigned char*>(row[1]);
+                    short slots{};
+                    std::memcpy(&slots, bytes + sizeof(int), sizeof(short));
+                    const std::size_t max_slots = (lengths[1] - sizeof(int) - sizeof(short)) / (sizeof(short) * 2);
+                    const std::size_t count = std::min<std::size_t>(static_cast<std::size_t>(std::max<short>(slots, 0)), max_slots);
+                    int amount{};
+                    std::size_t offset = sizeof(int) + sizeof(short);
+                    for (std::size_t i = 0; i < count; ++i) {
+                        short item_id{}, item_amount{};
+                        std::memcpy(&item_id, bytes + offset, sizeof(short)); offset += sizeof(short);
+                        std::memcpy(&item_amount, bytes + offset, sizeof(short)); offset += sizeof(short);
+                        if (item_id == id && item_amount > 0) amount += item_amount;
+                    }
+                    if (amount > 0) {
+                        found.emplace_back("[Offline] " + name, amount);
+                        offline_total += amount;
+                        ++offline_holders;
+                    }
+                }
+                mysql_free_result(result);
+            }
         }
         std::ranges::sort(found, [](const auto& a, const auto& b) { return a.second > b.second; });
+        const long long total = online_total + offline_total;
         std::string d = std::format("add_label_with_icon|big|Scan Results: {}|left|{}|\n", scan_item_name(id), id);
-        d += std::format("add_textbox|{} online holders; {} items total.|left|\n", found.size(), total);
-        if (found.empty()) d += "add_textbox|No online players currently hold this item.|left|\n";
+        d += std::format("add_textbox|Online: {} holders / {} items. Offline: {} holders / {} items.|left|\n", online_holders, online_total, offline_holders, offline_total);
+        d += std::format("add_textbox|Total saved inventory quantity: {}|left|\n", total);
+        if (found.empty()) d += "add_textbox|No online or offline player inventories currently hold this item.|left|\n";
         for (std::size_t i = 0; i < std::min<std::size_t>(found.size(), 50); ++i)
             d += std::format("add_textbox|{}: {}|left|\n", ui::sanitize(found[i].first, 48), found[i].second);
         if (found.size() > 50) d += std::format("add_smalltext|{} more holder(s) omitted.|left|\n", found.size() - 50);
