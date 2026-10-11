@@ -16,6 +16,7 @@ namespace {
 struct drop_rule { int item{}; int amount{1}; int chance{100}; };
 using rule_map = std::map<int, std::vector<drop_rule>>;
 rule_map rules;
+bool save();
 bool loaded = false;
 void load() {
     if (loaded) return;
