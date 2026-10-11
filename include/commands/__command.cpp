@@ -32,6 +32,7 @@
 #include "gameplay/welcome_system.hpp"
 #include "staff_tools.hpp"
 #include "gameplay/gacha_system.hpp"
+#include "gameplay/bonus_drop_system.hpp"
 
 /* emote commands all dispatch to on::Action. listed once here so the
  * cmd_pool registration and the /help text stay in sync automatically. */
@@ -180,6 +181,7 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"uptime", &command_uptime},
         {"count", &command_count},
         {"gacha", &gacha_system::command},
+        {"bonusdrop", &bonus_drop_system::command},
         {"lsb", &command_lsb},
         {"scanitem", &command_scanitem},
         {"mute", &command_mute},
