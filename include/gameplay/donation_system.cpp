@@ -1,6 +1,7 @@
 #include "pch.hpp"
 #include <fstream>
 #include <map>
+#include <charconv>
 #include <sstream>
 #include "database/peer.hpp"
 #include "database/items.hpp"
@@ -103,4 +104,43 @@ void command(ENetEvent& event, std::string_view text) {
     send_inventory_state(event);
     on::ConsoleMessage(event.peer, std::format("Thank you! Donated {} x{} ({} rarity). Personal total: {}; global total: {}.", item.raw_name, quantity, donation, d.rarity, total_rarity));
 }
+
+void open_box(ENetEvent& event) {
+    auto* p = event.peer && event.peer->data ? static_cast<::peer*>(event.peer->data) : nullptr;
+    if (!p) return;
+    load();
+    const auto own = donors[p->user_id].rarity;
+    std::string d = "set_default_color|o\n";
+    d += "add_label_with_icon|big|Stuff-4-Toys Donation Box|left|4264|\n";
+    d += "add_textbox|Donate items with rarity to earn milestone rewards. Items with rarity 999 cannot be donated.|left|\n";
+    d += std::format("add_textbox|Your donated rarity: {}|left|\n", own);
+    d += std::format("add_textbox|Global donated rarity: {}|left|\n", total_rarity);
+    d += std::format("add_textbox|Total milestone rewards issued: {}|left|\n", total_toys);
+    d += "add_spacer|small|\nadd_label|small|Reward milestones|left|\n";
+    for (const auto& r : rewards)
+        d += std::format("add_label_with_icon|small|{} rarity - {}|left|{}|\n", r.threshold, r.name, r.item);
+    d += "add_spacer|small|\n";
+    d += "add_text_input|donate_item_id|Item ID to donate:||8|\n";
+    d += "add_text_input|donate_quantity|Quantity:|1|4|\n";
+    d += "add_button|donation_confirm|Confirm Donation|noflags|0|0|\n";
+    d += "add_quick_exit|\nend_dialog|gurotopia_donation_box||Close|\n";
+    send_varlist(event.peer, {"OnDialogRequest", std::move(d)});
+}
+void handle_dialog_return(ENetEvent& event, const ::hPipe& pipe) {
+    if (pipe["buttonClicked"] != "donation_confirm") return;
+    const std::string item = pipe["donate_item_id"];
+    const std::string amount = pipe["donate_quantity"];
+    int item_id{}, quantity{};
+    const auto [item_end, item_ec] = std::from_chars(item.data(), item.data() + item.size(), item_id);
+    const auto [amount_end, amount_ec] = std::from_chars(amount.data(), amount.data() + amount.size(), quantity);
+    if (item_ec != std::errc{} || item_end != item.data() + item.size() ||
+        amount_ec != std::errc{} || amount_end != amount.data() + amount.size()) {
+        on::ConsoleMessage(event.peer, "Enter a valid item ID and quantity.");
+        open_box(event);
+        return;
+    }
+    command(event, std::format("donate {} {}", item_id, quantity));
+    open_box(event);
+}
+
 }
