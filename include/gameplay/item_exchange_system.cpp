@@ -88,6 +88,26 @@ void execute(ENetEvent& event, int id) {
 }
 }
 void command(ENetEvent& event, std::string_view) { show(event); }
+void show_admin(ENetEvent& event, std::string notice = {}) {
+    auto* p = event.peer && event.peer->data ? static_cast<::peer*>(event.peer->data) : nullptr;
+    if (!p || p->role != DEVELOPER) return;
+    load();
+    std::string d = "add_label_with_icon|big|Exchange Configuration|left|1366|\n";
+    d += "add_textbox|Developer-only editor. Configure required item quantities and rewards.|left|\n";
+    if (!notice.empty()) d += std::format("add_textbox|{}|left|\n", notice);
+    for (const auto& e : configs) {
+        d += std::format("add_textbox|#{}: {} x{} -> {} x{}|left|\n", e.id, item_name(e.required_item), e.required_amount, item_name(e.reward_item), e.reward_amount);
+        d += std::format("add_button|manageexchange_remove_{}|Remove #{}|noflags|0|0|\n", e.id, e.id);
+    }
+    d += "add_spacer|small|\nadd_label|small|Add an exchange|left|\n";
+    d += "add_text_input|exchange_required_item|Required item ID:||8|\n";
+    d += "add_text_input|exchange_required_amount|Required amount:|1|4|\n";
+    d += "add_text_input|exchange_reward_item|Reward item ID:||8|\n";
+    d += "add_text_input|exchange_reward_amount|Reward amount:|1|4|\n";
+    d += "add_button|manageexchange_add|Save exchange|noflags|0|0|\n";
+    d += "add_quick_exit|\nend_dialog|gurotopia_exchange_admin||Close|\n";
+    send_varlist(event.peer, {"OnDialogRequest", std::move(d)});
+}
 void manage_command(ENetEvent& event, std::string_view text) {
     auto* p = event.peer ? static_cast<::peer*>(event.peer->data) : nullptr;
     if (!p) return;
@@ -96,6 +116,7 @@ void manage_command(ENetEvent& event, std::string_view text) {
     std::istringstream in{std::string(text)};
     std::string cmd, action;
     in >> cmd >> action;
+    if (action.empty()) { show_admin(event); return; }
     if (action == "list") {
         for (const auto& e : configs)
             on::ConsoleMessage(event.peer, std::format("#{}: {} x{} -> {} x{}", e.id, e.required_item, e.required_amount, e.reward_item, e.reward_amount));
@@ -129,6 +150,38 @@ void manage_command(ENetEvent& event, std::string_view text) {
 }
 void handle_dialog_return(ENetEvent& event, const ::hPipe& pipe) {
     const std::string button = pipe["buttonClicked"];
+    auto* p = event.peer && event.peer->data ? static_cast<::peer*>(event.peer->data) : nullptr;
+    if (button == "manageexchange_add" || button.starts_with("manageexchange_remove_")) {
+        if (!p || p->role != DEVELOPER) return;
+        if (button == "manageexchange_add") {
+            const std::string a = pipe["exchange_required_item"], b = pipe["exchange_required_amount"];
+            const std::string c = pipe["exchange_reward_item"], d = pipe["exchange_reward_amount"];
+            int req{}, req_amount{}, reward{}, reward_amount{};
+            auto parse = [](const std::string& value, int& out) {
+                const auto [end, ec] = std::from_chars(value.data(), value.data() + value.size(), out);
+                return !value.empty() && ec == std::errc{} && end == value.data() + value.size();
+            };
+            if (!parse(a, req) || !parse(b, req_amount) || !parse(c, reward) || !parse(d, reward_amount) ||
+                !item_registry::exists(static_cast<u_short>(req)) || !item_registry::exists(static_cast<u_short>(reward)) ||
+                req_amount < 1 || req_amount > 200 || reward_amount < 1 || reward_amount > 200) {
+                show_admin(event, "Enter valid item IDs and quantities from 1 to 200."); return;
+            }
+            const int id = next_id++;
+            configs.push_back({id, req, req_amount, reward, reward_amount});
+            if (!save()) { configs.pop_back(); show_admin(event, "Could not save exchange configuration."); return; }
+            show_admin(event, "Exchange added."); return;
+        }
+        constexpr std::string_view remove_prefix = "manageexchange_remove_";
+        const std::string_view value(button.data() + remove_prefix.size(), button.size() - remove_prefix.size());
+        int id{};
+        const auto [end, ec] = std::from_chars(value.data(), value.data() + value.size(), id);
+        auto it = std::ranges::find(configs, id, &exchange::id);
+        if (ec != std::errc{} || end != value.data() + value.size() || it == configs.end()) { show_admin(event, "Exchange no longer exists."); return; }
+        const auto previous = *it;
+        configs.erase(it);
+        if (!save()) { configs.push_back(previous); show_admin(event, "Could not save exchange configuration."); return; }
+        show_admin(event, "Exchange removed."); return;
+    }
     constexpr std::string_view prefix = "exchange_";
     if (!button.starts_with(prefix)) return;
     int id{};
