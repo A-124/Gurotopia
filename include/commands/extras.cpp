@@ -129,6 +129,41 @@ namespace
         std::ofstream file{"resources/scanitem.txt", std::ios::trunc};
         return file && static_cast<bool>(file << id << '\n');
     }
+    struct scan_session { std::string query; int page{}; };
+    std::unordered_map<int, scan_session> scan_sessions;
+    void show_item_browser(ENetEvent& event)
+    {
+        auto* self = self_of(event);
+        if (!self) return;
+        auto& state = scan_sessions[self->netid];
+        std::vector<const ::item*> filtered;
+        std::string query = state.query;
+        std::ranges::transform(query, query.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        for (const auto& item : items) {
+            if (item.id <= 0 || !item_registry::exists(static_cast<u_short>(item.id))) continue;
+            std::string name = item.raw_name;
+            std::ranges::transform(name, name.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+            if (query.empty() || name.find(query) != std::string::npos) filtered.push_back(&item);
+        }
+        constexpr int page_size = 35;
+        const int pages = std::max(1, static_cast<int>((filtered.size() + page_size - 1) / page_size));
+        state.page = std::clamp(state.page, 0, pages - 1);
+        std::string d = "add_label_with_icon|big|Browse Items|left|6016|\n";
+        d += "add_text_input|scan_search_query|Search item name:|" + ui::sanitize(state.query, 48) + "|48|\n";
+        d += "add_button|scan_search|Search|noflags|0|0|\n";
+        d += "add_button|scan_clear_search|Clear search|noflags|0|0|\n";
+        d += std::format("add_textbox|Page {} of {} - {} matching items|left|\n", state.page + 1, pages, filtered.size());
+        if (state.page > 0) d += "add_button|scan_prev_page|Previous|noflags|0|0|\n";
+        if (state.page + 1 < pages) d += "add_button|scan_next_page|Next|noflags|0|0|\n";
+        const std::size_t first = static_cast<std::size_t>(state.page * page_size);
+        const std::size_t last = std::min(filtered.size(), first + page_size);
+        for (std::size_t i = first; i < last; ++i) {
+            const auto* item = filtered[i];
+            d += std::format("add_button_with_icon|scan_pick_{}|{}|staticBlueFrame|{}|\n", item->id, ui::sanitize(item->raw_name, 64), item->id);
+        }
+        d += "add_button|scan_browser_back|Back|noflags|0|0|\nend_dialog|scanitem_browser||Close|\n";
+        send_varlist(event.peer, {"OnDialogRequest", std::move(d)});
+    }
     int item_count(const ::peer& p, int id)
     {
         int total = 0;
@@ -156,6 +191,7 @@ namespace
         d += "add_spacer|small|\n";
         d += "add_text_input|scanitem_item_id|Item ID to track:||8|\n";
         d += "add_button|scanitem_save|Register item ID|noflags|0|0|\n";
+        d += "add_button|scanitem_browse|Browse/search items|noflags|0|0|\n";
         d += "add_quick_exit|\nend_dialog|scanitem_main||Close|\n";
         send_varlist(event.peer, {"OnDialogRequest", std::move(d)});
     }
@@ -213,7 +249,34 @@ void handle_scanitem_dialog_return(ENetEvent& event, const ::hPipe& pipe)
     auto* self = self_of(event);
     if (!self || self->role < MODERATOR) return;
     const std::string button = pipe["buttonClicked"];
-    if (button == "scanitem_save") {
+    if (button == "scanitem_browse") {
+        scan_sessions[self->netid] = {};
+        show_item_browser(event);
+    } else if (button == "scan_search") {
+        auto& state = scan_sessions[self->netid];
+        state.query = pipe["scan_search_query"];
+        state.page = 0;
+        show_item_browser(event);
+    } else if (button == "scan_clear_search") {
+        auto& state = scan_sessions[self->netid];
+        state.query.clear(); state.page = 0;
+        show_item_browser(event);
+    } else if (button == "scan_prev_page" || button == "scan_next_page") {
+        auto& state = scan_sessions[self->netid];
+        state.page = std::max(0, state.page + (button == "scan_next_page" ? 1 : -1));
+        show_item_browser(event);
+    } else if (button == "scan_browser_back") {
+        show_scanitem_panel(event);
+    } else if (button.starts_with("scan_pick_")) {
+        const std::string_view raw(button.data() + 10, button.size() - 10);
+        int id{};
+        const auto [end, ec] = std::from_chars(raw.data(), raw.data() + raw.size(), id);
+        if (ec != std::errc{} || end != raw.data() + raw.size() || !save_scanned_item(id)) {
+            show_item_browser(event); return;
+        }
+        scan_sessions.erase(self->netid);
+        show_scanitem_panel(event, std::format("Registered {} (ID {}).", scan_item_name(id), id));
+    } else if (button == "scanitem_save") {
         const std::string raw = pipe["scanitem_item_id"];
         int id{};
         const auto [end, ec] = std::from_chars(raw.data(), raw.data() + raw.size(), id);
