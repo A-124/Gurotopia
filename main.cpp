@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include "include/commands/event_manager.hpp" // @note event_manager_tick()
+#include "include/integration/discord_webhook.hpp"
 #include "include/core/event_bus.hpp"
 #include "include/core/runtime_reload.hpp"
 #include "include/gameplay/quest_system.hpp"
@@ -83,6 +84,7 @@ int main()
 
     event_bus::subscribe(event_bus::type::tick, [](const event_bus::event&) { title_system::on_tick(); });
 
+    discord_webhook::start();
     std::printf("gurotopia is ready: game port %hu/udp, %zu max players\n", gServer_data.port, static_cast<std::size_t>(host->peerCount));
 
     ENetEvent event{};
@@ -104,9 +106,11 @@ int main()
     }
 
     std::printf("shutting down (signal %d): saving players and worlds...\n", static_cast<int>(gSignal));
+    discord_webhook::notify("🔴 Gurotopia server is stopping (shutdown or restart).");
     safe_disconnect_peers(gSignal);
     worlds.clear(); // @note ~world() saves every loaded world; it must happen before the database closes (otherwise players' builds, drops and weather are lost on shutdown)
     mysql_close(db); // @note deletes db (MYSQL* allocation)
+    discord_webhook::stop(); // @note drain the final shutdown notification before process exit
     mysql_library_end();
 
     puts("killed gurotopia! [EXIT_SUCCESS]");

@@ -1,6 +1,6 @@
 flags := -std=c++20 -g -MMD -MP
 includes := -Iinclude -Ibuild/include
-libraries := -L./include/enet/lib -L./include/mysql/lib -lssl -lcrypto -lmariadb
+libraries := -L./include/enet/lib -L./include/mysql/lib -lssl -lcrypto -lmariadb -lcurl
 
 binary := main.out
 ifeq ($(OS),Windows_NT)

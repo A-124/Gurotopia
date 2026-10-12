@@ -21,10 +21,11 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-openssl
+            mingw-w64-ucrt-x86_64-curl
             make
             
       - if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install build-essential libssl-dev libmariadb-dev
+        run: sudo apt-get update && sudo apt-get install build-essential libssl-dev libmariadb-dev libcurl4-openssl-dev
 
       - if: matrix.os == 'windows-latest'
         run: make -j$(nproc)
