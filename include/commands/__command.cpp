@@ -113,7 +113,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
             "msg|/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
             "/setrole <UID> <role> /setlevel <player|UID> <level> /givetitle <player|me> <id> "
             "/on /online /weather <id> /ghost /punch <id> /content [/validate] /contentui /1hit "
-            "/reload <items|content|store|holiday|all> "
+            "/store [/reload] /reload <items|content|store|holiday|all> "
             "/startmultiplier <gem> <xp> <seconds> /stopmultiplier /bonusdrop (manager) /manageexchange (manager)");
     }
 };
@@ -162,6 +162,7 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"quest", &quests_command},
         {"achievements", &achievements_command},
         {"daily", &daily_command},
+        {"store", developer_only(&store_command)},
         {"titles", &command_titles},
         {"title", &command_titles},
         {"givetitle", developer_only(&command_givetitle)},
