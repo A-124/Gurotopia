@@ -8,6 +8,7 @@
 #include "onVariant/AddNotification.hpp"
 #include "daily_system.hpp"
 #include "gameplay/title_system.hpp"
+#include "tools/ui.hpp"
 
 namespace daily_system {
 namespace {
@@ -87,15 +88,25 @@ state evaluate(const ::peer &p, unsigned now)
 std::string day_line(int number, const day_reward &d, std::string_view status)
 {
     std::string text = std::format("`wDay {}`` {}  {}", number, status, goals::describe(d.prize));
-    if (!d.note.empty()) text += std::format("  `o({})``", d.note);
+    if (!d.note.empty()) text += std::format("  `9({})``", d.note);
     return text;
 }
 
 int icon_for(const goals::reward &r)
 {
     if (!r.items.empty()) return r.items.front().first;
-    return 112; // @note gems
+    if (r.gems > 0) return 112;
+    return 242; // world lock fallback
 }
+
+/* compact one-line summary of a reward for the "today" highlight */
+std::string reward_highlight(const day_reward &d)
+{
+    std::string t = goals::describe(d.prize);
+    if (!d.note.empty()) t += std::format(" — `9{}``", d.note);
+    return t;
+}
+
 }
 
 bool reload()
@@ -192,37 +203,71 @@ void show(ENetEvent &event, std::string notice)
     // @note which days of the cycle are already collected in the current streak
     const int collected = s.claimed_today ? (std::max(pPeer->daily_streak, 1) - 1) % cycle + 1 : (s.streak % cycle);
     const int display_streak = s.streak_alive ? pPeer->daily_streak : 0;
+    const int cycle_progress = s.claimed_today
+        ? collected
+        : std::max(0, collected); // days finished in this cycle
 
-    std::string d =
-        "set_bg_color|15,50,75,235|\n"
-        "set_border_color|75,205,230,255|\n"
-        "add_label_with_icon|big|`wDaily Rewards``|left|112|\n";
-    d += std::format("add_smalltext|Log in every day to keep your streak going. Reward cycle: {} days.|left|\n", cycle);
-    d += "add_spacer|small|\n";
-    if (!notice.empty()) d += std::format("add_textbox|{}|left|\nadd_spacer|small|\n", notice);
+    std::string d = ui::header("Daily Rewards", 112,
+        std::format("Log in every day to keep your streak. Cycle: {} day(s).", cycle));
 
+    if (!notice.empty())
+        d += std::format("add_textbox|{}|left|\nadd_spacer|small|\n", notice);
+
+    // ---- Streak summary ----
+    d += ui::section("Your streak");
     d += std::format("add_textbox|Current streak: `2{}`` day(s)|left|\n", display_streak);
+
+    // Progress through the current cycle
+    if (cycle > 0)
+    {
+        const int bar_cur = std::clamp(cycle_progress, 0, cycle);
+        d += std::format("add_smalltext|Cycle progress: {}  ({}/{})|left|\n",
+            ui::bar(bar_cur, cycle), bar_cur, cycle);
+    }
+
     if (!s.streak_alive && pPeer->last_daily != 0)
         d += "add_smalltext|`4Your streak was lost.`` Claim now to start again from Day 1.|left|\n";
+
     if (s.claimed_today)
-        d += std::format("add_textbox|`oNext reward available in `w{}```o.``|left|\n", duration(s.seconds_left));
+        d += std::format("add_textbox|`oNext reward in `w{}```o.``|left|\n", duration(s.seconds_left));
     else
-        d += std::format("add_textbox|`2Today's reward (Day {}) is ready to claim!``|left|\n", s.next_day);
+    {
+        const day_reward &today = active.days[static_cast<std::size_t>(s.next_day - 1)];
+        d += std::format("add_textbox|`2Today's reward is ready!`` (Day {} of cycle)|left|\n", s.next_day);
+        d += std::format("add_label_with_icon|small|`2{}``|left|{}|\n",
+            reward_highlight(today), icon_for(today.prize));
+    }
     d += "add_spacer|small|\n";
 
+    // ---- Day calendar ----
+    d += ui::section("Reward calendar");
     for (int i = 1; i <= cycle; ++i)
     {
         const day_reward &day = active.days[static_cast<std::size_t>(i - 1)];
         std::string status;
-        if (i <= collected && (s.claimed_today || s.streak_alive)) status = "`2[CLAIMED]``";
-        else if (i == s.next_day) status = s.claimed_today ? "`e[NEXT]``" : "`2[READY]``";
-        else status = "`o[LOCKED]``";
+        if (i <= collected && (s.claimed_today || s.streak_alive))
+            status = "`2[CLAIMED]``";
+        else if (i == s.next_day)
+            status = s.claimed_today ? "`e[NEXT]``" : "`2[READY]``";
+        else
+            status = "`o[LOCKED]``";
+
+        // Highlight milestone days (last day of cycle or days with item rewards / notes)
+        const bool milestone = (i == cycle) || !day.note.empty() || !day.prize.items.empty();
+        if (milestone && !(i <= collected && (s.claimed_today || s.streak_alive)))
+            status = std::format("`9*`` {}", status);
+
         d += std::format("add_label_with_icon|small|{}|left|{}|\n", day_line(i, day, status), icon_for(day.prize));
     }
+
     d += "add_spacer|small|\n";
-    if (!s.claimed_today) d += "add_button|daily_claim|Claim Today's Reward|noflags|0|0|\n";
+    d += "add_smalltext|`oTip: missing a day for too long resets your streak. Keep the fire going!``|left|\n";
+    d += "add_spacer|small|\n";
+
+    if (!s.claimed_today)
+        d += "add_button|daily_claim|Claim Today's Reward|noflags|0|0|\n";
     d += "add_button|daily_refresh|Refresh|noflags|0|0|\n";
-    d += "end_dialog|gurotopia_daily||Close|\nadd_quick_exit|\n";
+    d += ui::footer("gurotopia_daily");
 
     send_varlist(event.peer, { "OnDialogRequest", std::move(d) });
 }
