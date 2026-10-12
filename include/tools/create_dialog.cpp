@@ -81,6 +81,11 @@ create_dialog& create_dialog::add_button(std::string btn_id, std::string btn_nam
     _d.append(std::format("add_button|{}|{}|noflags|0|0|\n", btn_id, btn_name));
     return *this;
 }
+create_dialog& create_dialog::add_raw(std::string raw)
+{
+    _d.append(raw);
+    return *this;
+}
 create_dialog& create_dialog::add_image_button(std::string btn_id, std::string image, std::string layout, std::string link)
 {
     _d.append(std::format("add_image_button|{}|{}|{}|{}|\n", btn_id, image, layout, link));

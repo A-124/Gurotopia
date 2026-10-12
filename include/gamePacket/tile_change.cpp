@@ -14,6 +14,7 @@
 #include "action/dialog_return/vending.hpp"
 #include "automate/holiday.hpp"
 #include "commands/event_manager.hpp"
+#include "commands/legendary.hpp"
 #include "database/custom_content.hpp"
 #include "core/event_bus.hpp"
 #include "commands/moderation.hpp" // @note username_for_uid()
@@ -312,7 +313,10 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     if (now >= tree->tick && now - tree->tick >= static_cast<u_int>(std::max(item.tick, 0)))
                     {
                         block.hits[0] = 99;
-                        add_drop(event, ::slot(item.id - 1, RandomRange(1, tree->fruit*3)), gamePacket.punch.by_32(), *world); // @note fruit (from tree)
+                        const short fruit = static_cast<short>(RandomRange(1, tree->fruit*3));
+                        add_drop(event, ::slot(item.id - 1, fruit), gamePacket.punch.by_32(), *world); // @note fruit (from tree)
+                        const int fruit_rarity = id_to_item(item.id - 1).rarity;
+                        legend_on_harvest(event, (fruit_rarity < 999 ? fruit_rarity : 0) * fruit); // @note Legendary Quest
                     }
                     break;
                 }
@@ -398,19 +402,25 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     break;
                 }
             }
-            // /1hit primes the active layer so the normal damage pipeline breaks it on this punch.
-            if (pPeer->one_hit && item.hits > 0)
+            // /1hit and /breakall prime the active layer so the normal damage pipeline breaks it on this punch.
+            if ((pPeer->one_hit || pPeer->instant_break) && item.hits > 0)
             {
                 const std::size_t hit_layer = (block.fg != 0) ? 0u : 1u;
                 block.hits[hit_layer] = static_cast<u_char>(item.hits - 1);
             }
 
             const ::pos broken_position = gamePacket.punch.by_32();
+            const ::pos broken_tile = gamePacket.punch; // @note tile_apply_damage moves gamePacket, so keep the tile for /undo
+            const short old_fg = block.fg, old_bg = block.bg;
             tile_apply_damage(event, std::move(gamePacket), block, apply_damage_value);
 
             if (block.hits[0] >= item.hits) block.fg = 0, block.hits[0] = 0, block.last_hit[0] = 0;
             else if (block.hits[1] >= item.hits) block.bg = 0, block.hits[1] = 0, block.last_hit[1] = 0;
             else return;
+
+            // @note /undo only records actual breaks, so an undo never burns a step on a hit that changed nothing
+            if (pPeer->block_history.size() >= 50) pPeer->block_history.erase(pPeer->block_history.begin());
+            pPeer->block_history.push_back(::block_change{ world->name, (int)broken_tile.x, (int)broken_tile.y, old_fg, old_bg });
 
             u_int displayed_item_id{};
             if (item.type == type::DISPLAY_BLOCK)
@@ -589,6 +599,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     }
                 } /* ~gem drop */
 
+                if (item.type != type::SEED) legend_on_break(event, item.rarity < 999 ? item.rarity : 0); // @note Legendary Quest
                 pPeer->add_xp(event, std::trunc(1.0f + item.rarity / 5.0f));
             }
         } // @note delete im, id
@@ -797,6 +808,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
         }
         else if (gamePacket.id == 32)
         {
+            if (wizard_wrench(event, *world, static_cast<int>(gamePacket.punch.x), static_cast<int>(gamePacket.punch.y))) return; // @note Legendary Wizard
             switch (item.type)
             {
                 case type::LOCK:
@@ -1058,6 +1070,7 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                 case type::SEED:
                 {
                     world->trees.emplace_back(static_cast<u_int>(std::time(nullptr)), RandomRange(1, 3), gamePacket.punch);
+                    legend_on_plant(event, item.rarity < 999 ? item.rarity : 0); // @note Legendary Quest
                     block.state[2] = 0x11; // @todo
                     tile_update = true;
                     break;
@@ -1089,6 +1102,9 @@ void tile_change(ENetEvent& event, ::gamePacket gamePacket)
                     break;
                 }
             }
+            if (pPeer->block_history.size() >= 50) pPeer->block_history.erase(pPeer->block_history.begin());
+            pPeer->block_history.push_back(::block_change{ world->name, (int)gamePacket.punch.x, (int)gamePacket.punch.y, block.fg, block.bg }); // @note /undo: old tile, before the place
+
             block.state[2] &= ~S_LEFT;
             if ((item.property & 0x01) && pPeer->facing_left)
                 block.state[2] |= S_LEFT;

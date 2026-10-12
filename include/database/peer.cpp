@@ -13,7 +13,7 @@
 #include "commands/punch.hpp"
 #include "tools/string.hpp"
 #include "commands/event_manager.hpp"
-#include "gameplay/title_system.hpp"
+#include "commands/legendary.hpp"
 
 #include "peer.hpp"
 
@@ -109,23 +109,12 @@ void peer::mysql_select_all()
     this->hair_color = this->mysql_select<unsigned>("hair_color");
     this->banned = this->mysql_select<unsigned>("banned") != 0;
     this->muted_until = this->mysql_select<unsigned>("muted_until");
+    this->curse_until = static_cast<std::time_t>(this->mysql_select<signed>("curse_until"));
+    this->ban_until = static_cast<std::time_t>(this->mysql_select<signed>("ban_until"));
+    this->god_mode = this->mysql_select<signed>("god") != 0;
+    this->renamed_at = static_cast<std::time_t>(this->mysql_select<signed>("renamed_at"));
 
-    // @note titles + profile
-    this->title_active = this->mysql_select<signed>("title_active");
-    this->title_enabled = this->mysql_select<signed>("title_enabled") != 0;
-    this->titles_unlocked.clear();
-    {
-        const std::string saved = this->mysql_select<std::string>("titles_unlocked");
-        std::size_t at = 0;
-        while (at < saved.size())
-        {
-            std::size_t end = saved.find(',', at);
-            if (end == std::string::npos) end = saved.size();
-            const int id = std::atoi(saved.substr(at, end - at).c_str());
-            if (id > 0) this->titles_unlocked.insert(id);
-            at = end + 1;
-        }
-    }
+    // @note profile
     this->playtime = this->mysql_select<unsigned>("playtime");
     this->bio = this->mysql_select<std::string>("bio");
     this->notebook = this->mysql_select<std::string>("notebook");
@@ -316,20 +305,6 @@ void peer::save_goals()
     this->goals_unsaved = 0;
 }
 
-void peer::save_titles()
-{
-    std::string joined;
-    for (int id : this->titles_unlocked)
-    {
-        if (!joined.empty()) joined += ',';
-        joined += std::to_string(id);
-    }
-    if (joined.size() > 880) joined.resize(joined.rfind(',', 880)); // @note column is VARCHAR(900), never overflow it
-    this->mysql_update<signed>("title_active", this->title_active);
-    this->mysql_update<signed>("title_enabled", this->title_enabled ? 1 : 0);
-    this->mysql_update<std::string>("titles_unlocked", joined);
-}
-
 u_int peer::total_playtime() const
 {
     if (this->session_start <= 0) return this->playtime;
@@ -353,24 +328,25 @@ void peer::save_profile()
 
 std::string peer::nametag() const
 {
-    std::string shown = this->display_growid;
-    if (!this->nick.empty()) // @note staff /nick: keep the role colour so the name still looks official
-        shown = this->role == DEVELOPER ? std::format("`6{}``", this->nick)
-              : this->role == MODERATOR ? std::format("`c{}``", this->nick) : this->nick;
-
-    const std::string tag = this->title_enabled ? title_system::tag(*this) : std::string{};
-    // Explicitly colour ordinary names too: otherwise the client applies its built-in
-    // level-125 cyan/Platinum name colour even when the player has no custom title.
-    const bool coloured = !shown.empty() && shown.front() == '\x60';
-    const std::string explicit_name = coloured ? shown : std::format("\x60w{}", shown);
-    if (tag.empty()) return explicit_name;
-    return tag + explicit_name;
+    // @note display_growid already carries the colour, /nick and titles (display_name_for / title_name).
+    //       Plain names still get an explicit colour: otherwise the client applies its level-125 name colour.
+    const bool coloured = !this->display_growid.empty() && this->display_growid.front() == '\x60';
+    return coloured ? this->display_growid : std::format("\x60w{}", this->display_growid);
 }
 
 void peer::save_moderation()
 {
     this->mysql_update<signed>("banned", this->banned ? 1 : 0);
     this->mysql_update<unsigned>("muted_until", this->muted_until);
+}
+
+/* @note timed staff/item states that must survive a relog or restart (not the session-only ones) */
+static void save_timed_state(::peer &p)
+{
+    p.mysql_update<signed>("curse_until", static_cast<signed>(p.curse_until));
+    p.mysql_update<signed>("ban_until", static_cast<signed>(p.ban_until));
+    p.mysql_update<signed>("god", p.god_mode ? 1 : 0);
+    p.mysql_update<signed>("renamed_at", static_cast<signed>(p.renamed_at));
 }
 
 peer::~peer()
@@ -381,8 +357,8 @@ peer::~peer()
         this->save_progress();
         this->save_clothing();
         this->save_goals();
-        this->save_titles();
         this->save_profile();
+        save_timed_state(*this);
     }
 }
 
@@ -418,8 +394,8 @@ void peer::add_xp(ENetEvent &event, u_short value)
 {
     // @note compute in u_int: a u_short cast overflowed once the multiplier pushed the amount past 65535 (e.g. Experience Potion during a 10x event)
     const u_int gained = static_cast<u_int>(static_cast<float>(value) * get_xp_multiplier());
+    legend_on_xp(event, static_cast<int>(gained)); // @note Legendary Quest "Earn XP" steps
     u_int &lvl = this->level.front();
-    const u_int level_before = lvl;
     u_int &xp = this->level.back() += gained; // @note factor the new xp amount
 
     for (; lvl < 125; )
@@ -454,7 +430,6 @@ void peer::add_xp(ENetEvent &event, u_short value)
         if (self_netid != 0 && !this->recent_worlds.back().empty())
             peers(this->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer &p) { if (&p != event.peer) announce(p); });
     }
-    if (lvl != level_before) title_system::refresh(event.peer); // @note a new level may unlock new titles
 
     this->save_progress();
 }
@@ -514,7 +489,7 @@ void safe_disconnect_peers(int code)
         if (p.data != nullptr)
         {
             ::peer *pPeer = static_cast<::peer*>(p.data);
-            if (!pPeer->growid.empty()) pPeer->save_inventory();
+            if (!pPeer->growid.empty()) { pPeer->save_inventory(); save_timed_state(*pPeer); }
         }
         enet_peer_disconnect(&p, 0);
     });

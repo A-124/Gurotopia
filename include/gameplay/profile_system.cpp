@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include "gameplay/profile_system.hpp"
-#include "gameplay/title_system.hpp"
+#include "commands/legendary.hpp"
 #include "gameplay/content_commands.hpp"
 #include "commands/event_manager.hpp"
 #include "commands/social.hpp"
@@ -189,7 +189,7 @@ bool handle_popup(ENetEvent &event, const ::hPipe &pipe)
     if (!p) return false;
     const std::string button = pipe["buttonClicked"];
 
-    if (button == "title_edit")              { title_system::show(event); return true; }
+    if (button == "title_edit")              { titles_open(event); return true; }
     if (button == "notebook_edit")           { notebook_dialog(event); return true; }
     if (button == "open_personlize_profile") { bio_dialog(event); return true; }
     if (button == "wardrobe_customization")  { wardrobe_dialog(event); return true; }
@@ -223,7 +223,7 @@ void handle_dialog_return(ENetEvent &event, const ::hPipe &pipe)
     const std::string button = pipe["buttonClicked"];
     const std::string page = pipe["profile_page"];
 
-    if (button == "open_titles")  { title_system::show(event); return; }
+    if (button == "open_titles")  { titles_open(event); return; }
     if (button == "open_myworlds") { ::hPipe fake{ "buttonClicked|my_worlds|" }; ::popup(event, fake); return; }
 
     if (page == "notebook")

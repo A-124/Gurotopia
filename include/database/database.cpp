@@ -105,18 +105,22 @@ void create_table_if_not_exist()
     ensure_column("peer", "banned", "INT NOT NULL DEFAULT 0");
     ensure_column("peer", "goals", "BLOB NULL");
     ensure_column("peer", "muted_until", "INT UNSIGNED NOT NULL DEFAULT 0");
-    ensure_column("peer", "title_active", "INT NOT NULL DEFAULT 0");
-    ensure_column("peer", "title_enabled", "INT NOT NULL DEFAULT 1");
-    ensure_column("peer", "titles_unlocked", "VARCHAR(900) NULL");
     ensure_column("peer", "playtime", "INT UNSIGNED NOT NULL DEFAULT 0");
     ensure_column("peer", "bio", "VARCHAR(200) NULL");
     ensure_column("peer", "notebook", "VARCHAR(900) NULL");
+    ensure_column("peer", "curse_until", "INT NOT NULL DEFAULT 0");
+    ensure_column("peer", "ban_until", "INT NOT NULL DEFAULT 0");
+    ensure_column("peer", "god", "INT NOT NULL DEFAULT 0");
+    ensure_column("peer", "renamed_at", "INT NOT NULL DEFAULT 0");
     ensure_column("world", "minimum_entry_level", "TINYINT UNSIGNED NOT NULL DEFAULT 1");
     ensure_column("world", "access", "BLOB NULL");
     ensure_column("world", "provider_cooldowns", "BLOB NULL");
     ensure_column("world", "vending_machines", "BLOB NULL");
     ensure_column("world", "lock_state", "TINYINT UNSIGNED NOT NULL DEFAULT 0");
     ensure_column("world", "is_public", "BOOLEAN NOT NULL DEFAULT FALSE");
+    ensure_column("world", "nuked", "BOOLEAN NOT NULL DEFAULT FALSE");
+    ensure_column("world", "base_weather", "INT NOT NULL DEFAULT 0");
+    ensure_column("world", "treasure_spots", "TEXT NULL");
     ensure_medium_blob("world", "blocks");
     ensure_medium_blob("world", "objects");
 }

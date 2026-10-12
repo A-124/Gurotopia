@@ -12,3 +12,11 @@ void on::CountryState(ENetEvent& event)
         std::format("{}{}", pPeer->country, (pPeer->level[0] == 125) ? "|maxLevel" : "")
     }, pPeer->netid);
 }
+
+void on::CountryStateOf(ENetPeer &to, const ::peer &who)
+{
+    send_varlist(&to, {
+        "OnCountryState",
+        std::format("{}{}", who.country, (who.level[0] == 125) ? "|maxLevel" : "")
+    }, who.netid);
+}

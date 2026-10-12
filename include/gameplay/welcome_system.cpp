@@ -3,7 +3,7 @@
 #include <fstream>
 #include "gameplay/welcome_system.hpp"
 #include "gameplay/daily_system.hpp"
-#include "gameplay/title_system.hpp"
+#include "commands/legendary.hpp"
 #include "commands/help.hpp"
 #include "onVariant/ConsoleMessage.hpp"
 #include "tools/ui.hpp"
@@ -66,6 +66,6 @@ void handle_dialog_return(ENetEvent &event, const ::hPipe &pipe)
     const std::string button = pipe["buttonClicked"];
     if (button == "welcome_help") command_help(event, "");
     else if (button == "welcome_daily") daily_system::show(event);
-    else if (button == "welcome_titles") title_system::show(event);
+    else if (button == "welcome_titles") titles_open(event);
 }
 }

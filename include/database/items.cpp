@@ -30,6 +30,8 @@ const ::item &id_to_item(u_short id) noexcept // @note std::out_of_range is hand
 
 
 std::vector<u_char> im_data(sizeof(::gamePacket)/*inital packet*/, 0x00);
+std::vector<u_int> harmful_type_pos{}; // @note /god: byte offsets of deadly / fire / sting item types inside im_data
+u_int im_file_offset{}; // @note where items.dat starts inside im_data (used by /god hash checks)
 
 template<typename T>
 void shift_pos(const std::vector<u_char> &data, u_int &pos, T &value) noexcept // @note std::out_of_range is handled
@@ -65,6 +67,8 @@ bool decode_items()
     im_data = compress_state(::gamePacket{ .type = 0x10,/*PACKET_SEND_ITEM_DATABASE_DATA*/ .state = state::S_EXTENDED, .size = size }).data();
     
     u_int pos = im_data.size(); // @note sizeof(::gamePacket)
+    im_file_offset = pos;
+    harmful_type_pos.clear();
     im_data.resize(pos + size); // @note resize to fit binary data
     
     std::ifstream file("items.dat", std::ios::binary);
@@ -90,7 +94,9 @@ bool decode_items()
 
         shift_pos(im_data, pos, item.cat);
 
+        const u_int type_pos = pos;
         shift_pos(im_data, pos, item.type);
+        if (item.type == type::DEADLY || item.type == type::FIRE_PAIN || item.type == type::STING_PAIN) harmful_type_pos.emplace_back(type_pos);
         pos += sizeof(u_char);
 
         short len = *(reinterpret_cast<short*>(&im_data[pos]));

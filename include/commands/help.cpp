@@ -19,7 +19,7 @@ namespace
         { "/flip", "Flip a coin" }, { "/count", "Players online" }, { "/status", "Your level, gems and play time" },
     };
     constexpr entry progress[] = {
-        { "/titles", "Choose, enable or disable your title" }, { "/quests", "Your quests" }, { "/achievements", "Your achievements" },
+        { "/title", "Choose, enable or disable your titles" }, { "/quests", "Your quests" }, { "/achievements", "Your achievements" },
         { "/daily [claim]", "Daily reward and streak" }, { "/leaderboard", "Top levels and play time" },
         { "/features", "Gurotopia hub" }, { "/craft <id> [n]", "Craft custom items" }, { "/craftui", "Crafting workshop window" },
         { "/notebook", "Open your notebook" }, { "/playtime", "How long you have played" },
@@ -32,7 +32,7 @@ namespace
     };
     constexpr entry developer[] = {
         { "/admin", "Admin panel" }, { "/maint [on|off]", "Maintenance mode" }, { "/setrole <uid> <role>", "Change a role" },
-        { "/setlevel <player> <lvl>", "Set a level" }, { "/givetitle <player> <id>", "Give any title" },
+        { "/setlevel <player> <lvl>", "Set a level" }, { "/title <player> <legend|dr|...> [off]", "Give or take a title" },
         { "/reload <target>", "Reload items, content, store, holiday or all" }, { "/content [validate]", "Content tools" },
         { "/startmultiplier <gem> <xp> <sec>", "Start an event" }, { "/stopmultiplier", "End the event" },
         { "/weather <id>", "Change weather" }, { "/ghost", "Ghost mode" }, { "/punch <id>", "Punch effect" }, { "/1hit", "One-hit break" },

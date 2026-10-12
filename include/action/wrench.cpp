@@ -4,7 +4,7 @@
 #include "tools/ui.hpp"
 #include "gameplay/achievement_system.hpp"
 #include "gameplay/profile_system.hpp"
-#include "gameplay/title_system.hpp"
+#include "commands/legendary.hpp"
 
 void action::wrench(ENetEvent& event, const std::string& header) 
 {
@@ -34,6 +34,7 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             .add_player_info(pOthers->display_growid, std::to_string(lvl), pOthers->level.back(), 50 * (lvl * lvl + 2))
                             .add_spacer("small")
                             .add_spacer("small")
+                            .add_raw(title_quick_button(*pOthers)) // @note one-tap title on/off
                             .add_button("renew_pvp_license", "Get Card Battle License")
                             .add_spacer("small")
                             .set_custom_spacing(5, 10)
@@ -65,10 +66,7 @@ void action::wrench(ENetEvent& event, const std::string& header)
                             .add_textbox("`wActive effects:``")
                             .add_smalltext(profile_system::effects_text(*pOthers))
                             .add_spacer("small")
-                            .add_textbox(std::format("`wTitle: ``{}", (pOthers->title_active > 0 && pOthers->titles_unlocked.contains(pOthers->title_active) && title_system::find(pOthers->title_active))
-                                ? std::format("`{}{}`` `o({})``", title_system::find(pOthers->title_active)->color, title_system::find(pOthers->title_active)->name, pOthers->title_enabled ? "shown" : "hidden")
-                                : std::string{"`onone``"}))
-                            .add_textbox(std::format("`wTitles unlocked: ``{}/{}", title_system::owned_count(*pOthers), title_system::all().size()))
+                            .add_textbox(std::format("`wTitle: ``{}", title_wrench_line(*pOthers, true)))
                             .add_spacer("small")
                             .add_smalltext(std::format("Fires Put Out: {}", pOthers->fires_removed))
                             .add_spacer("small")
@@ -105,7 +103,7 @@ void action::wrench(ENetEvent& event, const std::string& header)
                                 std::min(pOthers->achievements_done.size(), achievement_system::all().size()),
                                 achievement_system::all().size()))
                             .add_spacer("small")
-                            .add_label("small", std::format("`1Title:`` {}", (pOthers->title_enabled && !title_system::tag(*pOthers).empty()) ? title_system::tag(*pOthers) : std::string{"none"}))
+                            .add_label("small", std::format("`1Title:`` {}", title_wrench_line(*pOthers, false)))
                             .add_smalltext(pOthers->bio.empty() ? std::string{"`oNo profile line set.``"} : std::format("`o{}``", ui::sanitize(pOthers->bio, 80)))
                             .add_spacer("small")
                             .add_label("small", std::format("`1Play time:`` {}", profile_system::playtime_text(*pOthers)))

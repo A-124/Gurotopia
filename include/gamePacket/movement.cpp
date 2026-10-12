@@ -11,7 +11,7 @@ void movement(ENetEvent& event, ::gamePacket gamePacket)
     pPeer->facing_left = gamePacket.state & state::S_MOVE_LEFT;
 
     /* add fireproof only take away 1 hp instead of 2 */
-    if (gamePacket.state & state::S_LAVA_HIT) pPeer->pain_hp -= 2;
+    if ((gamePacket.state & state::S_LAVA_HIT) && !pPeer->god_mode) pPeer->pain_hp -= 2; // @note /god is immune to damage
     if (pPeer->pain_hp <= 0) action::respawn(event, ""), pPeer->pain_hp = 10;
     
     gamePacket.netid = pPeer->netid;

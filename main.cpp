@@ -20,7 +20,6 @@
 #include "include/core/runtime_reload.hpp"
 #include "include/gameplay/quest_system.hpp"
 #include "include/gameplay/achievement_system.hpp"
-#include "include/gameplay/title_system.hpp"
 
 namespace
 {
@@ -82,7 +81,6 @@ int main()
     event_bus::subscribe(event_bus::type::block_placed, achievement_system::on_event);
     event_bus::subscribe(event_bus::type::player_entered_world, achievement_system::on_event);
 
-    event_bus::subscribe(event_bus::type::tick, [](const event_bus::event&) { title_system::on_tick(); });
 
     discord_webhook::start();
     std::printf("gurotopia is ready: game port %hu/udp, %zu max players\n", gServer_data.port, static_cast<std::size_t>(host->peerCount));

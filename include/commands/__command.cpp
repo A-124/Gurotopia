@@ -27,7 +27,50 @@
 #include "social.hpp"
 #include "help.hpp"
 #include "leaderboard.hpp"
-#include "title_commands.hpp"
+#include "profile_commands.hpp"
+#include "legendary.hpp" // @note titles (of Legend, Dr.) and /title
+#include "access.hpp"
+#include "accounts.hpp"
+#include "announce.hpp"
+#include "bot.hpp"
+#include "breakall.hpp"
+#include "clear.hpp"
+#include "curse.hpp"
+#include "deleteworld.hpp"
+#include "ducttape.hpp"
+#include "fill.hpp"
+#include "firework.hpp"
+#include "flag.hpp"
+#include "freeze.hpp"
+#include "gems.hpp"
+#include "give.hpp"
+#include "god.hpp"
+#include "heal.hpp"
+#include "invis.hpp"
+#include "list.hpp"
+#include "nuke.hpp"
+#include "private.hpp"
+#include "removeblock.hpp"
+#include "renameworld.hpp"
+#include "reset.hpp"
+#include "saveworld.hpp"
+#include "search.hpp"
+#include "setowner.hpp"
+#include "showplayer.hpp"
+#include "shutdown.hpp"
+#include "spawnall.hpp"
+#include "sphere.hpp"
+#include "summon.hpp"
+#include "swap.hpp"
+#include "undo.hpp"
+#include "undress.hpp"
+#include "unnuke.hpp"
+#include "warpto.hpp"
+#include "wear.hpp"
+#include "whois.hpp"
+#include "worlds.hpp"
+#include "worldtools.hpp"
+#include "xp.hpp"
 #include "extras.hpp"
 #include "gameplay/welcome_system.hpp"
 #include "staff_tools.hpp"
@@ -45,9 +88,11 @@ static constexpr std::string_view emotes[24]{
 };
 
 /* Commands that require an argument are rejected before dispatch when omitted. */
-std::array<std::string_view, 16> cmd_requires_arg{
+std::array<std::string_view, 32> cmd_requires_arg{
     "sb", "warp", "punch", "skin", "me", "weather", "setrole", "resetallworld",
-    "setlevel", "kick", "ban", "unban", "pull", "mute", "unmute", "pinfo"
+    "setlevel", "kick", "ban", "unban", "pull", "mute", "unmute", "pinfo",
+    "announce", "freeze", "fill", "sphere", "deleteworld", "summon", "swap", "renameworld",
+    "wear", "whois", "xp", "gems", "give", "warpto", "curse", "uncurse"
 };
 
 /* Keep permission checks at dispatch time so hidden commands cannot be invoked directly. */
@@ -90,7 +135,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
 
     // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
     std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
-        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily [claim] /titles /leaderboard /playtime /notebook "
+        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily [claim] /title /leaderboard /playtime /notebook "
         "/msg <player> <message> /r <message> /mods /rules /worldinfo /roll [sides] /flip /ping /uptime /count /status /welcome /gacha /exchange /lsb <message>";
 
     for (std::string_view emote : emotes)
@@ -106,12 +151,21 @@ auto help_return = [](ENetEvent& event, const std::string_view)
             "msg|/kick <player|UID> /ban <player|UID> /unban <player|UID> /pull <player|UID> /mute <player> [minutes] /unmute <player> /pinfo <player> /nick <name> /default /scanitem");
     }
 
+    if (pPeer->role >= MODERATOR)
+    {
+        send_action(*event.peer, "log", "msg|>> `wStaff Tools (each command checks its own role):");
+        send_action(*event.peer, "log",
+            "msg|/access /accounts /announce /bot /breakall /clear /cleardrops /curse /uncurse /deleteworld /deleteallworlds /ducttape /dumpitems "
+            "/fill /fillworld /firework /flag /freeze /gems /give /god /heal /invis /list /nuke /unnuke /private /removeblock /renameworld "
+            "/reset /save /search /setowner /showplayer /shutdown /spawnall /sphere /summon /swap /tile /undo /undress /warpto /wear /whois /worlds /xp");
+    }
+
     if (pPeer->role == DEVELOPER)
     {
         send_action(*event.peer, "log", "msg|>> `bDeveloper Cmd:");
         send_action(*event.peer, "log",
             "msg|/admin /maint [on|off] /maintenance [on|off] /resetworld /resetallworld confirm /ready "
-            "/setrole <UID> <role> /setlevel <player|UID> <level> /givetitle <player|me> <id> "
+            "/setrole <UID> <role> /setlevel <player|UID> <level> /title <player> legend|dr "
             "/on /online /weather <id> /ghost /punch <id> /content [/validate] /contentui /1hit "
             "/store [/reload] /reload <items|content|store|holiday|all> "
             "/startmultiplier <gem> <xp> <seconds> /stopmultiplier /bonusdrop (manager) /manageexchange (manager)");
@@ -163,14 +217,59 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"achievements", &achievements_command},
         {"daily", &daily_command},
         {"store", developer_only(&store_command)},
-        {"titles", &command_titles},
-        {"title", &command_titles},
-        {"givetitle", developer_only(&command_givetitle)},
+        {"title", &title_cmd},
         {"leaderboard", &command_leaderboard},
         {"lb", &command_leaderboard},
         {"top", &command_leaderboard},
         {"playtime", &command_playtime},
         {"notebook", &command_notebook},
+        {"access", &access_cmd},
+        {"accounts", &accounts_cmd},
+        {"announce", &announce},
+        {"bot", &bot_cmd},
+        {"breakall", &breakall},
+        {"clear", &clear_cmd},
+        {"cleardrops", &cleardrops_cmd},
+        {"curse", &curse_cmd},
+        {"deleteallworlds", &deleteallworlds_cmd},
+        {"deleteworld", &deleteworld},
+        {"ducttape", &ducttape},
+        {"dumpitems", &dumpitems_cmd},
+        {"fill", &fill},
+        {"fillworld", &fillworld_cmd},
+        {"firework", &firework},
+        {"flag", &flag_cmd},
+        {"freeze", &freeze},
+        {"gems", &gems},
+        {"give", &give},
+        {"god", &god},
+        {"heal", &heal},
+        {"invis", &invis},
+        {"list", &list_cmd},
+        {"nuke", &nuke},
+        {"private", &private_cmd},
+        {"removeblock", &removeblock},
+        {"renameworld", &renameworld},
+        {"reset", &reset},
+        {"save", &saveworld},
+        {"search", &search_cmd},
+        {"setowner", &setowner},
+        {"showplayer", &showplayer},
+        {"shutdown", &shutdown_cmd},
+        {"spawnall", &spawnall},
+        {"sphere", &sphere},
+        {"summon", &summon},
+        {"swap", &swap_cmd},
+        {"tile", &tile_cmd},
+        {"uncurse", &uncurse_cmd},
+        {"undo", &undo},
+        {"undress", &undress},
+        {"unnuke", &unnuke},
+        {"warpto", &warpto},
+        {"wear", &wear},
+        {"whois", &whois},
+        {"worlds", &worlds_cmd},
+        {"xp", &xp_cmd},
         {"msg", &command_msg},
         {"w", &command_msg},
         {"r", &command_reply},

@@ -5,7 +5,7 @@
 #include "onVariant/SetBux.hpp"
 #include "tools/create_dialog.hpp"
 #include "automate/holiday.hpp"
-#include "gameplay/title_system.hpp"
+#include "commands/legendary.hpp"
 #include "gameplay/welcome_system.hpp"
 
 #include "enter_game.hpp"
@@ -20,9 +20,7 @@ void action::enter_game(ENetEvent& event, const std::string& header)
             pPeer->display_growid
         )
     );
-    title_system::refresh(event.peer); // @note unlock anything earned while offline (account age, saved progress)
-    if (const std::string tag = pPeer->title_enabled ? title_system::tag(*pPeer) : std::string{}; !tag.empty())
-        on::ConsoleMessage(event.peer, std::format("`oYour title: ``{}`o- change it from the wrench menu > Title.``", tag));
+    legend_load(*pPeer); // @note Legendary Quest progress and titles
     on::ConsoleMessage(event.peer, holiday_greeting().second);
     on::ConsoleMessage(event.peer, "`5Personal Settings active:`` `#Can customize profile``");
     

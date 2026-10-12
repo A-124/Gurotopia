@@ -175,10 +175,14 @@ public:
     void save_blocks();
     void save_objects();
     void save_metadata();
+    void save(); // @note writes metadata, blocks and objects to MariaDB (used by /saveworld, /nuke, /restart)
     void save_provider_cooldowns();
     void save_vending_machines();
 
     std::string name{};
+    bool nuked{}; // @note nuked worlds are staff-only
+    int base_weather{0}; // @note blast worlds: background weather id
+    std::string treasure_spots{}; // @note Beach Blast chests that still hold treasure, as "x,y;x,y;"
 
     int owner{ 00 }; // @note owner of world using peer's user id.
     std::array<int, 20> access{}; // @note {user_id} @credit https://www.growtopiagame.com/forums/member/440629-yeldyt

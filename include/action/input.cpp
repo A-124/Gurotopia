@@ -2,6 +2,7 @@
 #include "commands/__command.hpp"
 #include "onVariant/ConsoleMessage.hpp"
 #include "tools/time.hpp"
+#include "tools/bubble.hpp"
 #include "core/audit.hpp"
 #include "input.hpp"
 
@@ -46,11 +47,15 @@ void action::input(ENetEvent& event, const std::string& header)
         send_action(*event.peer, "log", std::format("msg| `6{}``", text));
         std::string command = text.substr(1, text.find(' ') - 1);
         
-        if (auto it = cmd_pool.find(command); it != cmd_pool.end()) 
+        if (auto it = cmd_pool.find(command); it != cmd_pool.end())
         {
             if (std::ranges::find(cmd_requires_arg, command) != cmd_requires_arg.end() && text.length() <= command.length()+1)
             {
                 send_action(*event.peer, "log", "msg|`4Unknown command.`` Enter `$/?`` for a list of valid commands.");
+            }
+            else if (pPeer->curse_until > std::time(nullptr) && (command == "sb" || command == "msg" || command == "w" || command == "reply" || command == "r"))
+            {
+                tell(event.peer, "`4You can't do that while cursed.``");
             }
             else
             {
@@ -65,7 +70,7 @@ void action::input(ENetEvent& event, const std::string& header)
     }
     else 
     {
-        if (pPeer->state & S_DUCT_TAPE)
+        if ((pPeer->state & S_DUCT_TAPE) || pPeer->curse_until > std::time(nullptr))
         {
             static constexpr std::array<std::string_view, 4ull> muffled{ "mfmm", "mmfmfm", "mffm", "mfmfmm" };
 

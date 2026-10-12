@@ -7,7 +7,6 @@
 #include "gameplay/quest_system.hpp"
 #include "gameplay/achievement_system.hpp"
 #include "gameplay/daily_system.hpp"
-#include "gameplay/title_system.hpp"
 
 namespace runtime_reload {
 
@@ -21,7 +20,6 @@ result reload(std::string_view target)
         if (items.empty()) return result::failed;
         if (!custom_content::reload()) return result::failed;
         if (!rebuild_custom_items()) return result::failed;
-        title_system::reload();
         return (quest_system::reload() && achievement_system::reload() && daily_system::reload())
             ? result::ok : result::failed;
     }
@@ -44,7 +42,6 @@ result reload(std::string_view target)
         if (!quest_system::reload()) return result::failed;
         if (!achievement_system::reload()) return result::failed;
         if (!daily_system::reload()) return result::failed;
-        title_system::reload();
         check_for_holiday();
         return result::ok;
     }

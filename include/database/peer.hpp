@@ -69,8 +69,14 @@ enum pstate : int
 {
     S_GHOST       = 0x00000001,
     S_DOUBLE_JUMP = 0x00000002,
-    S_DUCT_TAPE   = 0x00002000
+    S_DUCT_TAPE   = 0x00002000,
+    S_FROZEN      = 0x00000800,
+    S_INVISIBLE   = 0x00000024
 };
+
+struct block_change { std::string world; int x; int y; short old_fg; short old_bg; };
+
+struct active_buff { u_char id{}; std::time_t ends{}; u_short item{}; };
 
 class peer {
 public:
@@ -82,7 +88,6 @@ public:
     void save_progress();
     void save_clothing();
     void save_goals(); // @note quest / achievement progress and daily reward
-    void save_titles(); // @note unlocked titles, equipped title and the on/off switch
     void save_profile(); // @note play time, bio and notebook
 
     bool exists(const std::string &growid);
@@ -112,6 +117,21 @@ public:
     u_int hair_color = bgra::GREEN | bgra::GREEN | bgra::RED | bgra::ALPHA; // @note value declines for specfic hair colors
 
     bool one_hit{}; // Developer-only /1hit mode: break breakable blocks in one punch.
+    bool god_mode{}; // @note /god, immune to damage
+    bool frozen{}; // @note /freeze
+    bool instant_break{}; // @note /breakall
+    std::time_t curse_until{}; // @note /curse, unix time the curse ends (0 = not cursed)
+    std::time_t freeze_until{}; // @note Freeze Wand, unix time the freeze ends (0 = none)
+    std::time_t ban_until{}; // @note Ban Wand, unix time the ban ends (0 = not banned)
+    std::vector<std::pair<int, std::time_t>> item_states{}; // @note effects from items: {state flag, ends}
+    std::vector<::active_buff> buffs{}; // @note timed buffs from consumables
+    std::string god_rejoin{}; ::pos god_rejoin_pos{}; std::time_t god_rejoin_at{}; // @note world to return to after /god reloads items.dat
+    std::time_t renamed_at{}; // @note Birth Certificate, last rename
+    u_int tint{}; std::time_t tint_until{}; short tint_item{}; // @note Blueberry / Cherry skin color
+    ::pos move{ 250.0f, 1000.0f }; std::time_t move_until{}; short move_item{}; // @note Mud Glob / Das Red Balloon {speed, gravity}
+    std::string last_msg_from{}; // @note /reply
+    std::vector<::block_change> block_history{}; // @note /undo
+    std::string nickname{}; // @note /nick disguise, empty = not disguised
 
     int state{}; // @note using pstate::
 
@@ -160,11 +180,7 @@ public:
     int daily_streak{};
     u_short goals_unsaved{}; // @note progress events since the last save_goals()
 
-    /* titles (see gameplay/title_system.hpp) */
-    std::unordered_set<int> titles_unlocked{}; // @note every title this peer has ever earned. never shrinks.
-    int title_active{};      // @note equipped title id, 0 = none
-    bool title_enabled{ true }; // @note master switch: false hides the title on the name tag without forgetting the choice
-    /* @return the name shown above the player's head: "`2[Builder]`` name" (title only when enabled) */
+    /* @return the name shown above the player's head: display_growid (already has colour, /nick and titles) */
     std::string nametag() const;
     std::string nick{}; // @note session-only name set by staff with /nick, empty = real name
 

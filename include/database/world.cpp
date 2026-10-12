@@ -298,6 +298,9 @@ void world::mysql_select_all()
     this->minimum_entry_level = static_cast<u_char>(this->mysql_select<unsigned>("minimum_entry_level"));
     this->lock_state = static_cast<u_char>(this->mysql_select<unsigned>("lock_state"));
     this->is_public = this->mysql_select<unsigned>("is_public") != 0;
+    this->nuked = this->mysql_select<unsigned>("nuked") != 0;
+    this->base_weather = static_cast<int>(this->mysql_select<signed>("base_weather"));
+    this->treasure_spots = this->mysql_select<std::string>("treasure_spots");
     {
         const ::blob saved_access = this->mysql_select<::blob>("access");
         int pos{};
@@ -552,6 +555,16 @@ void world::save_metadata()
     for (int user_id : this->access)
         if (user_id != 0) saved_access.i32(user_id);
     this->mysql_update<::blob>("access", saved_access);
+    this->mysql_update<unsigned>("nuked", this->nuked ? 1u : 0u);
+    this->mysql_update<signed>("base_weather", this->base_weather);
+    this->mysql_update<std::string>("treasure_spots", this->treasure_spots);
+}
+
+void world::save()
+{
+    this->save_metadata();
+    this->save_blocks();
+    this->save_objects();
 }
 
 void world::save_blocks()

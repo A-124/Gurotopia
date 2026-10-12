@@ -2,7 +2,8 @@
 #include <charconv>
 #include <ctime>
 #include "onVariant/ConsoleMessage.hpp"
-#include "gameplay/title_system.hpp"
+#include "database/world.hpp"
+#include "commands/lockaccess.hpp"
 #include "gameplay/profile_system.hpp"
 #include "tools/ui.hpp"
 #include "staff_tools.hpp"
@@ -10,6 +11,17 @@
 namespace
 {
     ::peer *self_of(ENetEvent &event) { return (event.peer && event.peer->data) ? static_cast<::peer*>(event.peer->data) : nullptr; }
+
+    /* the staff name for everyone in the world, the same name rules as joining (titles and colours included) */
+    void broadcast_name(ENetEvent &event)
+    {
+        ::peer *self = self_of(event);
+        if (!self || self->netid == 0 || self->recent_worlds.back().empty()) return;
+        const auto w = std::ranges::find(worlds, self->recent_worlds.back(), &::world::name);
+        if (w == worlds.end()) return;
+        self->display_growid = display_name_for(*self, *w);
+        peers(w->name, PEER_SAME_WORLD, [&](ENetPeer &other) { send_varlist(&other, { "OnNameChanged", self->display_growid }, self->netid); });
+    }
     void say(ENetEvent &event, std::string message) { if (event.peer) on::ConsoleMessage(event.peer, std::move(message)); }
 
     std::string_view first_arg(std::string_view text, std::string_view &rest)
@@ -133,8 +145,8 @@ void command_nick(ENetEvent &event, std::string_view text)
     if (ENetPeer *taken = find_online(wanted); taken && taken != event.peer)
     { say(event, "`4That name belongs to another player.``"); return; }
 
-    self->nick = wanted;
-    title_system::broadcast_name(event.peer);
+    self->nickname = wanted;
+    broadcast_name(event);
     say(event, std::format("`2Your name is now `w{}``. Use /default to restore it.``", wanted));
 }
 
@@ -142,9 +154,9 @@ void command_default(ENetEvent &event, std::string_view)
 {
     ::peer *self = self_of(event);
     if (!self) return;
-    if (self->nick.empty()) { say(event, "`oYou are already using your real name.``"); return; }
-    self->nick.clear();
-    title_system::broadcast_name(event.peer);
+    if (self->nickname.empty()) { say(event, "`oYou are already using your real name.``"); return; }
+    self->nickname.clear();
+    broadcast_name(event);
     say(event, "`2Your real name is back.``");
 }
 
@@ -154,7 +166,6 @@ void command_status(ENetEvent &event, std::string_view)
     if (!self) return;
     say(event, std::format("`wLevel {}`` `o(XP {})``   Gems `w{}``   Play time `w{}``",
         self->level.front(), self->level.back(), self->gems, profile_system::playtime_text(*self)));
-    say(event, std::format("`oWorld: `w{}``   Titles: `w{}/{}``   Daily streak: `w{}``",
-        self->recent_worlds.back().empty() ? "none" : self->recent_worlds.back(),
-        title_system::owned_count(*self), title_system::all().size(), self->daily_streak));
+    say(event, std::format("`oWorld: `w{}``   Daily streak: `w{}``",
+        self->recent_worlds.back().empty() ? "none" : self->recent_worlds.back(), self->daily_streak));
 }
