@@ -20,6 +20,10 @@ namespace
     constexpr auto request_timeout = std::chrono::seconds(5);
     constexpr auto send_interval = std::chrono::milliseconds(2100);
 
+    // Paste your Discord webhook URL between the quotes below.
+    // Treat the URL like a password; do not publish it or commit a real URL to a public repo.
+    constexpr std::string_view configured_webhook_url = "PASTE_YOUR_DISCORD_WEBHOOK_URL_HERE";
+
     std::mutex queue_mutex;
     std::condition_variable queue_changed;
     std::deque<std::string> queue;
@@ -125,14 +129,14 @@ namespace
 
 void start()
 {
-    const char* configured_url = std::getenv("GURO_DISCORD_WEBHOOK_URL");
-    if (!configured_url || !*configured_url)
+    if (configured_webhook_url.empty() ||
+        configured_webhook_url == "PASTE_YOUR_DISCORD_WEBHOOK_URL_HERE")
     {
-        std::puts("[discord] webhook disabled (GURO_DISCORD_WEBHOOK_URL is not set)");
+        std::puts("[discord] webhook disabled (set configured_webhook_url in discord_webhook.cpp)");
         return;
     }
 
-    webhook_url = configured_url;
+    webhook_url = configured_webhook_url;
     if (!webhook_url.starts_with("https://"))
     {
         std::fprintf(stderr, "[discord] webhook URL must use HTTPS; integration disabled\n");
