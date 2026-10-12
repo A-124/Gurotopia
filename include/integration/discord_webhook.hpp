@@ -2,14 +2,25 @@
 
 #include <string_view>
 
+/* Discord webhook notifications (libcurl, background queue).
+ *
+ * Enable with either:
+ *   export GURO_DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+ * or put that URL alone on the first line of:
+ *   resources/discord_webhook.url
+ *
+ * Never commit a real webhook URL — treat it like a password.
+ */
 namespace discord_webhook
 {
-    // Starts the background sender. No-op when GURO_DISCORD_WEBHOOK_URL is unset.
     void start();
+    void stop();
 
-    // Queue a plain-text Discord notification. Safe to call from the game thread.
+    /* Queue a plain-text message (max ~2000 chars). Safe from the game thread. */
     void notify(std::string_view message);
 
-    // Drains queued notifications and joins the sender thread.
-    void stop();
+    /* Queue a rich embed. color is 0xRRGGBB (e.g. 0x57F287 green). */
+    void notify_embed(std::string_view title, std::string_view description, int color = 0x5865F2);
+
+    bool enabled() noexcept;
 }
