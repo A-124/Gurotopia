@@ -114,9 +114,12 @@ void event_start_command(ENetEvent& event, const std::string_view text)
         "`2[EVENT]`` Event started! Gem x{:.1f}, XP x{:.1f} for {}.",
         gem_mult, xp_mult, format_duration(duration)));
 
-    discord_webhook::notify(std::format(
-        "🎉 Multiplier event started by {}! Gems x{:.1f}, XP x{:.1f}, duration {}.",
-        pPeer->growid, gem_mult, xp_mult, format_duration(duration)));
+    discord_webhook::notify_embed(
+        "Multiplier event started",
+        std::format(
+            "Started by **{}**\nGems ×{:.1f} · XP ×{:.1f}\nDuration: **{}**",
+            pPeer->growid, gem_mult, xp_mult, format_duration(duration)),
+        0xFEE75C);
 
     send_talk(event.peer, pPeer->netid, "Multiplier event started!");
 }
@@ -144,6 +147,10 @@ void event_stop_command(ENetEvent& event, const std::string_view)
     g_event_state.end_time = 0;
 
     broadcast_message("`4[EVENT]`` The multiplier event has ended.");
+    discord_webhook::notify_embed(
+        "Multiplier event ended",
+        std::format("Stopped by **{}**.", pPeer->growid),
+        0xED4245);
     send_talk(event.peer, pPeer->netid, "Multiplier event stopped.");
 }
 
@@ -176,5 +183,9 @@ void event_manager_tick()
         g_event_state.end_time = 0;
 
         broadcast_message("`4[EVENT]`` The multiplier event has ended.");
+        discord_webhook::notify_embed(
+            "Multiplier event ended",
+            "Event duration expired.",
+            0xED4245);
     }
 }
