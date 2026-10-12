@@ -11,6 +11,7 @@
 #include "proton/Variant.hpp"
 #include "__command.hpp"
 #include "event_manager.hpp"
+#include "integration/discord_webhook.hpp"
 
 /* Global state */
 event_state g_event_state;
@@ -112,6 +113,10 @@ void event_start_command(ENetEvent& event, const std::string_view text)
     broadcast_message(std::format(
         "`2[EVENT]`` Event started! Gem x{:.1f}, XP x{:.1f} for {}.",
         gem_mult, xp_mult, format_duration(duration)));
+
+    discord_webhook::notify(std::format(
+        "🎉 Multiplier event started by {}! Gems x{:.1f}, XP x{:.1f}, duration {}.",
+        pPeer->growid, gem_mult, xp_mult, format_duration(duration)));
 
     send_talk(event.peer, pPeer->netid, "Multiplier event started!");
 }
