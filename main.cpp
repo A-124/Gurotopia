@@ -85,7 +85,6 @@ int main()
     event_bus::subscribe(event_bus::type::tick, [](const event_bus::event&) { title_system::on_tick(); });
 
     discord_webhook::start();
-    discord_webhook::notify("🟢 Gurotopia server is online.");
     std::printf("gurotopia is ready: game port %hu/udp, %zu max players\n", gServer_data.port, static_cast<std::size_t>(host->peerCount));
 
     ENetEvent event{};
