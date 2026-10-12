@@ -69,7 +69,7 @@ int main()
     gDb_config.init();
     mysql_connect();
     decode_items();      // @note reads items.dat into legible class members (id, item name, ect)
-    parse_store();       // @todo thread loop this so the store can update without restarting server (stored in .\resource\store.txt)
+    parse_store();       // live catalog; also auto-reloads when resources/store.txt changes (see store_auto_reload_tick)
     check_for_holiday(); // @note check for any holidays using local time (your VPS or local time)
     runtime_reload::reload("content");
     event_bus::subscribe(event_bus::type::item_changed, quest_system::on_event);
@@ -95,6 +95,7 @@ int main()
             mysql_ping(db); // @note keeps the connection alive and reconnects if MariaDB restarted
         }
         event_manager_tick(); // @note check if gem/xp multiplier event has expired
+        store_auto_reload_tick(); // @note pick up edits to resources/store.txt without /reload
         event_bus::emit({ event_bus::type::tick });
 
         while (enet_host_service(host, &event, 1000/*ms*/) > 0)
