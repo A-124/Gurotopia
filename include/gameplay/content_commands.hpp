@@ -5,6 +5,7 @@ void content_status(ENetEvent& event, const std::string_view text);
 void quests_command(ENetEvent& event, const std::string_view text);
 void achievements_command(ENetEvent& event, const std::string_view text);
 void daily_command(ENetEvent& event, const std::string_view text);
+void store_command(ENetEvent& event, const std::string_view text);
 void features_command(ENetEvent& event, const std::string_view text);
 void craft_dialog_command(ENetEvent& event, const std::string_view text);
 void content_dialog_command(ENetEvent& event, const std::string_view text);
