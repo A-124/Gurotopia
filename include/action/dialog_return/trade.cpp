@@ -13,18 +13,9 @@ std::unordered_map<ENetPeer*, std::shared_ptr<trade::session>> trade::sessions;
 
 namespace
 {
-    // =====================================================================
-    //  THEME — dito mo palitan ang itsura ng trade window
-    // =====================================================================
-    constexpr int BG_COLOR[4]     = {14, 16, 24, 240};  // dark navy   (r, g, b, alpha 0-255)
-    constexpr int BORDER_COLOR[4] = {0, 210, 180, 255}; // teal accent (r, g, b, alpha 0-255)
-    // Text color codes na ginamit sa baba (palitan sa show() kung gusto mo):
-    //   `w white   `o light gray   `c cyan (accent)   `2 green   `9 yellow   `4 red
-
-    // @note true = ipakita rin ang lumang listahan ng "Add xN" buttons sa ilalim ng picker.
+    constexpr int BG_COLOR[4]     = {14, 16, 24, 240};
+    constexpr int BORDER_COLOR[4] = {0, 210, 180, 255};
     constexpr bool SHOW_ADD_GRID = false;
-
-    // @note ilang segundong walang pindot bago ituring na abandoned ang trade
     constexpr std::time_t TRADE_IDLE_LIMIT = 120;
 
     ::create_dialog themed()
@@ -47,7 +38,6 @@ namespace
     bool same_world(ENetPeer *a, ENetPeer *b)
     {
         const ::peer *pa = pp(a), *pb = pp(b);
-        // @note netid == 0 means the player already left to the world menu
         return pa && pb && pa->netid != 0 && pb->netid != 0
             && !pa->recent_worlds.back().empty()
             && pa->recent_worlds.back() == pb->recent_worlds.back();
@@ -55,8 +45,6 @@ namespace
 
     void touch(trade::session &s) { s.last_active = std::time(nullptr); }
 
-    /* abandoned / broken trade: someone left the world, disconnected,
-       or nobody clicked anything for TRADE_IDLE_LIMIT seconds */
     bool session_dead(const trade::session &s)
     {
         if (!pp(s.a) || !pp(s.b) || !same_world(s.a, s.b)) return true;
@@ -73,7 +61,7 @@ namespace
             if (o.item >= static_cast<int>(items.size()) || id_to_item(static_cast<u_short>(o.item)).id != o.item) return false;
             if (id_to_item(static_cast<u_short>(o.item)).cat & CAT_UNTRADEABLE) return false;
             need[o.item] += o.count;
-            if (need[o.item] > 800) return false; // @note 4 slots * 200
+            if (need[o.item] > 800) return false;
         }
         for (const auto &[id, n] : need)
         {
@@ -84,7 +72,6 @@ namespace
         return true;
     }
 
-    /* can `p` hold `incoming` AFTER it has handed over `outgoing`? (items given away free up slots) */
     bool fits(const ::peer &p, const std::array<trade::offer, 4> &outgoing, const std::array<trade::offer, 4> &incoming)
     {
         std::vector<::slot> sim = p.slots;
@@ -117,7 +104,6 @@ namespace
         return true;
     }
 
-    /* offers are reservations: the backpack is only touched here, at confirm. */
     void take_offer(ENetEvent &event, const std::array<trade::offer, 4> &offers)
     {
         for (const auto &o : offers)
@@ -148,7 +134,6 @@ namespace
         }
     }
 
-    /* "5x Dirt, 1x Rock" — text version of an offer, used for instant notices */
     std::string offer_text(const std::array<trade::offer, 4> &offers)
     {
         std::string text;
@@ -168,7 +153,6 @@ namespace
         return total;
     }
 
-    /* "Dirt x200" */
     std::string item_line(const trade::offer &o)
     {
         return std::format("`w{}`` `ox{}``", id_to_item(static_cast<u_short>(o.item)).raw_name, o.count);
@@ -187,7 +171,6 @@ namespace
         return "`oReview both offers, then tap Accept. Both players must accept.``";
     }
 
-    /* @param amount 0 = whole remaining stack (max 200 per offer slot), >0 = that many */
     bool add_to_offer(ENetEvent &event, std::array<trade::offer, 4> &my_off,
         int id, int amount, std::string &err)
     {
@@ -195,7 +178,7 @@ namespace
         if (!me) { err = "`4Trade error.``"; return false; }
         if (id <= 0 || id >= static_cast<int>(items.size()) ||
             id_to_item(static_cast<u_short>(id)).id != id) { err = "`4Unknown item.``"; return false; }
-        if (id == 18 || id == 32) { err = "`4That item cannot be traded.``"; return false; } // @note fist + wrench
+        if (id == 18 || id == 32) { err = "`4That item cannot be traded.``"; return false; }
         const ::item &it = id_to_item(static_cast<u_short>(id));
         if (it.cat & CAT_UNTRADEABLE) { err = "`4That item cannot be traded.``"; return false; }
         int have = 0;
@@ -241,13 +224,6 @@ namespace
         return true;
     }
 
-    /* Layout (top -> bottom):
-       [Refresh]  Trade with X  status hint
-       > THEY GIVE [state]   items
-       > YOU GIVE  [state]   items (+Remove)
-       summary
-       > ADD ITEM   inventory picker + amount
-       [ACCEPT TRADE]   [Cancel] */
     void show(ENetPeer *viewer, trade::session &s, bool is_a)
     {
         ::peer *me = pp(viewer);
@@ -262,7 +238,7 @@ namespace
         const int get_total = offer_total(their_off);
 
         auto dialog = themed()
-            .add_button("trade_refresh", "`cRefresh``") // @note PINAKA-TAAS para madaling i-tap
+            .add_button("trade_refresh", "`cRefresh``")
             .add_spacer("small")
             .add_label_with_icon("big", std::format("`wTrade with `c{}``", other->display_growid), 242)
             .add_smalltext(status_hint(other->display_growid, i_accept, they_accept, (give_total + get_total) > 0))
@@ -295,8 +271,6 @@ namespace
         dialog.add_spacer("small")
             .add_smalltext(std::format("`oYou give `w{}`` item(s)   |   You get `w{}`` item(s)``", give_total, get_total));
 
-        // @note same as the vending machine: tap the picker -> choose an item from your inventory.
-        //       The picker posts "itemID" back; "amount" (optional) is sent along with it.
         dialog.add_spacer("small")
             .add_textbox("`c> ADD ITEM``")
             .add_item_picker("itemID", "`wTap to pick an item from your inventory``", "Choose the item you want to offer.")
@@ -329,20 +303,18 @@ namespace
             .embed_data("trade_win", 1)
             .add_quick_exit();
         std::printf("[trade] dialog sent to %s (seq %d)\n", me->growid.c_str(), s.seq);
-        // @note bottom standard button = Cancel only (the Accept button is the green one above)
-        send_varlist(viewer, {"OnDialogRequest", dialog.end_dialog("trade", "Cancel", "")});
+        const char *dialog_name = (s.seq % 2 == 0) ? "trade" : "trade2";
+        send_varlist(viewer, {"OnDialogRequest", dialog.end_dialog(dialog_name, "Cancel", "")});
     }
 
-    /* Re-send BOTH dialogs, then instantly tell the partner what changed.
-       The notice (screen overlay + chat) shows the actor's FULL current offer,
-       so the partner sees it right away even if their open dialog is not
-       replaced by the client yet.
-       @param actor peer who changed something (nullptr = no notice)
-       @param what  short text, e.g. "added an item" */
+    /* GT client often keeps an open dialog and ignores a second OnDialogRequest.
+       Push the window anyway (works for the actor after dialog_return, and for some
+       clients on the partner). Always tell the partner in overlay + chat to Refresh. */
     void show_both(trade::session &s, ENetPeer *actor = nullptr, const std::string &what = "")
     {
         touch(s);
-        ++s.seq; // @note unique payload per mutation
+        ++s.seq; // also flips trade <-> trade2 dialog name
+
         show(s.a, s, true);
         show(s.b, s, false);
 
@@ -353,13 +325,27 @@ namespace
             if (partner && who)
             {
                 const auto &actor_off = (actor == s.a) ? s.offers_a : s.offers_b;
-                const std::string msg = std::format("`w{}`` {}. `oOffer:`` `2{}``",
+                const std::string msg = std::format(
+                    "`2TRADE UPDATE`` `w{}`` {}. `oOffer:`` `2{}`` `o— tap `cRefresh`` `oat the top.``",
                     who->display_growid, what, offer_text(actor_off));
                 send_varlist(partner, {"OnTextOverlay", msg});
                 on::ConsoleMessage(partner, msg);
             }
         }
-        if (host) enet_host_flush(host); // @note send now, not on the next service tick
+        if (host) enet_host_flush(host);
+    }
+
+    void notify_trade_done(ENetPeer *viewer, const std::string &summary)
+    {
+        if (!viewer || !pp(viewer)) return;
+        send_varlist(viewer, {"OnTextOverlay", "`2Trade complete!``"});
+        on::ConsoleMessage(viewer, "`2Trade complete!`` " + summary);
+        send_varlist(viewer, {"OnDialogRequest", themed()
+            .add_label("big", "`2Trade complete!``")
+            .add_spacer("small")
+            .add_smalltext(summary.empty() ? std::string{"`oItems have been exchanged.``"} : summary)
+            .add_spacer("small")
+            .end_dialog("trade_closed", "", "OK")});
     }
 }
 
@@ -402,25 +388,22 @@ void trade::open(ENetEvent &event, int target_netid)
     if (!target) { on::ConsoleMessage(event.peer, "`4That player is not here.``"); return; }
     if (!same_world(event.peer, target)) { on::ConsoleMessage(event.peer, "`4You must be in the same world to trade.``"); return; }
 
-    // @note 1) I already have a trade (maybe I just closed its window with the X)
     if (session *mine = trade::find(event.peer))
     {
         ENetPeer *partner = (mine->a == event.peer) ? mine->b : mine->a;
         if (partner == target && !session_dead(*mine))
         {
-            // same partner -> just re-open the SAME trade, offers are still there
             touch(*mine);
             show(event.peer, *mine, mine->a == event.peer);
             return;
         }
-        trade::close(event.peer, true); // abandoned, or I'm starting one with someone else
+        trade::close(event.peer, true);
     }
 
-    // @note 2) the other player is busy — but only if their trade is still alive
     if (session *busy = trade::find(target))
     {
         if (!session_dead(*busy)) { on::ConsoleMessage(event.peer, "`4That player is already trading.``"); return; }
-        trade::close(target, true); // abandoned trade, clean it up
+        trade::close(target, true);
     }
 
     auto s = std::make_shared<session>();
@@ -432,7 +415,7 @@ void trade::open(ENetEvent &event, int target_netid)
     send_varlist(target, {"OnTextOverlay", std::format("`2{} opened a trade!``", me->display_growid)});
     on::ConsoleMessage(target, std::format("`2{} opened a trade!``", me->display_growid));
     auto *mine = trade::find(event.peer);
-    if (mine) show_both(*mine); // @note both windows open together
+    if (mine) show_both(*mine);
 }
 
 void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
@@ -444,7 +427,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         action.c_str(), hPipe["dialog_name"].c_str(), hPipe["trade_seq"].c_str(),
         hPipe["itemID"].c_str(), hPipe["amount"].c_str());
 
-    // @note wrench Trade button (dialog "popup") carries netID of the target.
     if (action == "trade")
     {
         int netid = 0;
@@ -460,12 +442,11 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
     trade::session *s = trade::find(event.peer);
     if (!s)
     {
-        // @note stale dialog left open after the trade ended
-        if (hPipe["dialog_name"] == "trade")
+        if (hPipe["dialog_name"] == "trade" || hPipe["dialog_name"] == "trade2")
             on::ConsoleMessage(event.peer, "`oThis trade is no longer active.``");
         return;
     }
-    touch(*s); // @note any click counts as activity
+    touch(*s);
     const bool is_a = (s->a == event.peer);
     ENetPeer *other_p = is_a ? s->b : s->a;
     ::peer *me = pp(event.peer);
@@ -483,7 +464,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         return;
     }
 
-    // @note Refresh: re-send the current dialog only (does NOT bump seq)
     if (action == "trade_refresh")
     {
         show(event.peer, *s, is_a);
@@ -492,10 +472,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
 
     auto &my_off = is_a ? s->offers_a : s->offers_b;
 
-    // @note INVENTORY PICKER (like the vending machine): the client posts "itemID"
-    //       when the player taps an item. It only counts as a pick when the click is
-    //       NOT one of our own buttons (Accept / Remove / Add), because those can
-    //       also carry an old itemID along.
     const std::string picked = hPipe["itemID"];
     if (!picked.empty() &&
         !action.starts_with("tadd_") && !action.starts_with("tremove_") &&
@@ -508,7 +484,7 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
             show(event.peer, *s, is_a);
             return;
         }
-        int amount = 0; // @note blank / invalid = whole remaining stack
+        int amount = 0;
         const std::string amount_text = hPipe["amount"];
         if (!amount_text.empty() && (!parse_int(amount_text, amount) || amount < 0)) amount = 0;
 
@@ -524,7 +500,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         return;
     }
 
-    // @note old grid button (only used when SHOW_ADD_GRID = true)
     if (action.starts_with("tadd_"))
     {
         int id = 0;
@@ -546,7 +521,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         return;
     }
 
-    // @note tap "Remove" -> remove that offer line.
     if (action.starts_with("tremove_"))
     {
         int idx = -1;
@@ -561,22 +535,15 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         return;
     }
 
-    // @note Accept is ONLY the explicit Accept button.
-    const bool is_accept = action == "trade_accept" || action == "Accept";
-    if (is_accept)
+    if (action == "trade_accept" || action == "Accept")
     {
-        // @note STALE-DIALOG GUARD: if the player is looking at an old dialog
-        // (partner changed the offer meanwhile), do NOT accept — show the fresh one.
-        // Un-accepting is always allowed. Empty seq (client did not echo it) is let through.
-        const bool already = is_a ? s->accept_a : s->accept_b;
         const std::string seq_text = hPipe["trade_seq"];
-        if (!already && !seq_text.empty())
+        if (!seq_text.empty())
         {
-            int seq = 0;
-            if (!parse_int(seq_text, seq) || seq != s->seq)
+            int client_seq = -1;
+            if (parse_int(seq_text, client_seq) && client_seq != s->seq)
             {
-                on::ConsoleMessage(event.peer, "`4The offer changed! Check it again, then accept.``");
-                send_varlist(event.peer, {"OnTextOverlay", "`4The offer changed! Check it again, then accept.``"});
+                on::ConsoleMessage(event.peer, "`oTrade updated — check the new offers, then accept.``");
                 show(event.peer, *s, is_a);
                 return;
             }
@@ -619,13 +586,20 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
             std::printf("[trade] %s (UID %d) gave [%s] <-> %s (UID %d) gave [%s]\n",
                 pa->growid.c_str(), pa->user_id, offer_text(s->offers_a).c_str(),
                 pb->growid.c_str(), pb->user_id, offer_text(s->offers_b).c_str());
-            on::ConsoleMessage(s->a, "`2Trade complete!``");
-            on::ConsoleMessage(s->b, "`2Trade complete!``");
-            send_varlist(s->a, {"OnTextOverlay", "`2Trade complete!``"});
-            send_varlist(s->b, {"OnTextOverlay", "`2Trade complete!``"});
-            ENetPeer *sa = s->a, *sb = s->b;
-            sessions.erase(sa);
-            sessions.erase(sb);
+            {
+                const std::string summary_a = std::format(
+                    "`oYou gave`` `2{}`` `oand received`` `2{}``",
+                    offer_text(s->offers_a), offer_text(s->offers_b));
+                const std::string summary_b = std::format(
+                    "`oYou gave`` `2{}`` `oand received`` `2{}``",
+                    offer_text(s->offers_b), offer_text(s->offers_a));
+                ENetPeer *sa = s->a, *sb = s->b;
+                sessions.erase(sa);
+                sessions.erase(sb);
+                notify_trade_done(sa, summary_a);
+                notify_trade_done(sb, summary_b);
+                if (host) enet_host_flush(host);
+            }
             return;
         }
         const bool now_accepted = is_a ? s->accept_a : s->accept_b;
