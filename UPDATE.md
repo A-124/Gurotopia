@@ -1,3 +1,22 @@
+## Live Store Hot-Reload & Daily UI (feature/live-store-and-daily-ui)
+
+### Live Store Hot-Reload
+- `parse_store()` now builds a full catalog then swaps it in atomically — purchases never see a half-loaded list.
+- Invalid lines are skipped with line numbers; if nothing valid is found the previous catalog is kept.
+- Console logs how many products were loaded.
+- **Auto-reload**: the main loop watches `resources/store.txt` and reloads when the file mtime changes (no restart, no command).
+- `/reload store` reports the live product count.
+- New developer command: `/store` (status) and `/store reload` (force reload).
+
+### Improved Daily Rewards UI
+- Uses the shared `ui.hpp` theme (header / section / progress bar / footer).
+- Streak summary with a cycle progress bar.
+- Today's reward is highlighted with icon + description when claimable.
+- Milestone days (last day of cycle, item rewards, notes) are marked with `*`.
+- Clearer cooldown and streak-lost messaging.
+
+---
+
 ## Custom content
 
 Custom item and recipe definitions are loaded from `resources/custom_items.txt`.

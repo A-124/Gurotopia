@@ -1,5 +1,6 @@
 #include "pch.hpp"
 #include <ctime>
+#include <sstream>
 #include <algorithm>
 #include "content_commands.hpp"
 #include "database/custom_content.hpp"
@@ -12,6 +13,7 @@
 #include "database/peer.hpp"
 #include "gameplay/craft.hpp"
 #include "gameplay/daily_system.hpp"
+#include "database/shouhin.hpp"
 
 namespace {
 void open_dialog(ENetEvent& event, std::string body) {
@@ -135,3 +137,29 @@ void handle_content_dialog_return(ENetEvent& event, const ::hPipe& pipe) {
 }
 
 void daily_command(ENetEvent& event, const std::string_view text) { daily_system::command(event, text); }
+
+void store_command(ENetEvent& event, const std::string_view text) {
+    auto *p = event.peer ? static_cast<::peer*>(event.peer->data) : nullptr;
+    if (!p) return;
+    if (p->role < DEVELOPER) {
+        on::ConsoleMessage(event.peer, "Only developers can use this command.");
+        return;
+    }
+    std::string arg;
+    {
+        std::istringstream in{std::string(text)};
+        std::string cmd; in >> cmd >> arg;
+    }
+    if (arg == "reload" || arg == "r") {
+        if (parse_store())
+            on::ConsoleMessage(event.peer, std::format("`2[STORE]`` reloaded — `w{}`` product(s) live.", store_product_count()));
+        else
+            on::ConsoleMessage(event.peer, "`4[STORE]`` reload failed (file missing or no valid products). Previous catalog kept.");
+        return;
+    }
+    const std::time_t last = store_last_reload();
+    std::string when = last ? std::format("{}s ago", static_cast<long>(std::time(nullptr) - last)) : "never";
+    on::ConsoleMessage(event.peer, std::format("`2[STORE]`` `w{}`` product(s) live. Last reload: {}. Auto-reload watches resources/store.txt.",
+        store_product_count(), when));
+    on::ConsoleMessage(event.peer, "Usage: /store  |  /store reload");
+}
