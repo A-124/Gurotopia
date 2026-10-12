@@ -1,7 +1,8 @@
 #include "pch.hpp"
 
 #include "popup.hpp"
-#include "trade.hpp"
+#include "onVariant/ConsoleMessage.hpp"
+#include "commands/trade.hpp"
 #include "gameplay/content_commands.hpp"
 #include "gameplay/profile_system.hpp"
 #include "tools/ui.hpp"
@@ -13,10 +14,14 @@ void popup(ENetEvent& event, const ::hPipe &hPipe)
     // @note titles, notebook, bio, wardrobe, growmojis, world lock bank, view outfit, send message
     if (profile_system::handle_popup(event, hPipe)) return;
 
-    // @note wrench "Trade" button opens the P2P trade window.
-    if (hPipe["buttonClicked"] == "trade")
+    if (hPipe["buttonClicked"] == "trade") // @note wrench someone > Trade
     {
-        trade::handle(event, hPipe);
+        const int netid = atoi(hPipe["netID"].c_str());
+        ENetPeer *target = nullptr;
+        if (pPeer->netid != 0)
+            peers(pPeer->recent_worlds.back(), PEER_SAME_WORLD, [&](ENetPeer &p) { const ::peer *t = static_cast<::peer*>(p.data); if (t && t->netid == netid) target = &p; });
+        if (target) trade_request(event, *target);
+        else on::ConsoleMessage(event.peer, "`4That player isn't here anymore.``");
         return;
     }
     if (hPipe["buttonClicked"] == "alist")

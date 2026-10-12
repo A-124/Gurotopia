@@ -3,11 +3,32 @@
 #include <map>
 #include "onVariant/ConsoleMessage.hpp"
 #include "onVariant/SetClothing.hpp"
-#include "tools/bubble.hpp"
 #include "database/items.hpp"
 #include "database/world.hpp"
-#include "pull.hpp"
 #include "trade.hpp"
+
+static void tell(ENetPeer *peer, const std::string &text) { on::ConsoleMessage(peer, text); }
+
+/* a player in this world by exact name, or by the first letters (3 or more, must be unique) */
+static ENetPeer *find_in_world(const std::string &world, const std::string &name, bool &ambiguous)
+{
+    auto lower = [](std::string s) { for (char &c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c))); return s; };
+    ambiguous = false;
+    const std::string want = lower(name);
+    ENetPeer *exact = nullptr, *prefix = nullptr;
+    int prefixes = 0;
+    peers(world, PEER_SAME_WORLD, [&](ENetPeer &p)
+    {
+        const ::peer *t = static_cast<::peer*>(p.data);
+        if (!t || t->growid.empty()) return;
+        const std::string have = lower(t->growid);
+        if (have == want) exact = &p;
+        else if (want.size() >= 3 && have.starts_with(want)) { prefix = &p; ++prefixes; }
+    });
+    if (exact) return exact;
+    if (prefixes > 1) ambiguous = true;
+    return prefixes == 1 ? prefix : nullptr;
+}
 
 namespace
 {
@@ -284,7 +305,6 @@ void trade_request(ENetEvent &event, ENetPeer &target)
 
     if (me == t) { on::ConsoleMessage(event.peer, "`oYou trade all your stuff to yourself in exchange for all your stuff."); return; }
     if (me->netid == 0 || t->netid == 0 || me->recent_worlds.back() != t->recent_worlds.back()) { tell(event.peer, "`4You can only trade with players in the same world.``"); return; }
-    if (me->curse_until > std::time(nullptr)) { tell(event.peer, "`4You can't trade while cursed.``"); return; }
     if (auto it = states.find(t->user_id); it != states.end() && it->second.open && it->second.partner != me->user_id)
     {
         send_varlist(event.peer, { "OnTalkBubble", me->netid, "`wThat person is busy.``", 0u });

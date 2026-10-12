@@ -17,6 +17,7 @@
 #include "news.hpp"
 #include "weather.hpp"
 #include "ghost.hpp"
+#include "trade.hpp"
 #include "__command.hpp"
 #include "stats.hpp"
 #include "event_manager.hpp"
@@ -33,12 +34,9 @@
 #include "accounts.hpp"
 #include "announce.hpp"
 #include "bot.hpp"
-#include "breakall.hpp"
-#include "clear.hpp"
 #include "curse.hpp"
 #include "deleteworld.hpp"
 #include "ducttape.hpp"
-#include "fill.hpp"
 #include "firework.hpp"
 #include "flag.hpp"
 #include "freeze.hpp"
@@ -51,7 +49,6 @@
 #include "nuke.hpp"
 #include "private.hpp"
 #include "removeblock.hpp"
-#include "renameworld.hpp"
 #include "reset.hpp"
 #include "saveworld.hpp"
 #include "search.hpp"
@@ -59,10 +56,8 @@
 #include "showplayer.hpp"
 #include "shutdown.hpp"
 #include "spawnall.hpp"
-#include "sphere.hpp"
 #include "summon.hpp"
 #include "swap.hpp"
-#include "undo.hpp"
 #include "undress.hpp"
 #include "unnuke.hpp"
 #include "warpto.hpp"
@@ -88,10 +83,10 @@ static constexpr std::string_view emotes[24]{
 };
 
 /* Commands that require an argument are rejected before dispatch when omitted. */
-std::array<std::string_view, 32> cmd_requires_arg{
+std::array<std::string_view, 29> cmd_requires_arg{
     "sb", "warp", "punch", "skin", "me", "weather", "setrole", "resetallworld",
     "setlevel", "kick", "ban", "unban", "pull", "mute", "unmute", "pinfo",
-    "announce", "freeze", "fill", "sphere", "deleteworld", "summon", "swap", "renameworld",
+    "announce", "freeze", "deleteworld", "summon", "swap",
     "wear", "whois", "xp", "gems", "give", "warpto", "curse", "uncurse"
 };
 
@@ -135,7 +130,7 @@ auto help_return = [](ENetEvent& event, const std::string_view)
 
     // Avoid embedded newlines: the game's log packet parser truncates at line breaks.
     std::string player_commands = "/help /? /time /sb <message> /find /warp <world> /who "
-        "/me <message> /news /event /skin <id> /craft <item_id> [amount] /craftui /features /quests /achievements /daily [claim] /title /leaderboard /playtime /notebook "
+        "/me <message> /news /event /skin <id> /trade <player> /craft <item_id> [amount] /craftui /features /quests /achievements /daily [claim] /title /leaderboard /playtime /notebook "
         "/msg <player> <message> /r <message> /mods /rules /worldinfo /roll [sides] /flip /ping /uptime /count /status /welcome /gacha /exchange /lsb <message>";
 
     for (std::string_view emote : emotes)
@@ -155,9 +150,9 @@ auto help_return = [](ENetEvent& event, const std::string_view)
     {
         send_action(*event.peer, "log", "msg|>> `wStaff Tools (each command checks its own role):");
         send_action(*event.peer, "log",
-            "msg|/access /accounts /announce /bot /breakall /clear /cleardrops /curse /uncurse /deleteworld /deleteallworlds /ducttape /dumpitems "
-            "/fill /fillworld /firework /flag /freeze /gems /give /god /heal /invis /list /nuke /unnuke /private /removeblock /renameworld "
-            "/reset /save /search /setowner /showplayer /shutdown /spawnall /sphere /summon /swap /tile /undo /undress /warpto /wear /whois /worlds /xp");
+            "msg|/access /accounts /announce /bot /curse /uncurse /deleteworld /deleteallworlds /ducttape /dumpitems "
+            "/firework /freeze /gems /give /god /heal /invis /list /nuke /unnuke /private /removeblock "
+            "/reset /save /search /setowner /showplayer /shutdown /spawnall /summon /swap /tile /undress /warpto /wear /whois /worlds /xp");
     }
 
     if (pPeer->role == DEVELOPER)
@@ -227,18 +222,12 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"accounts", &accounts_cmd},
         {"announce", &announce},
         {"bot", &bot_cmd},
-        {"breakall", &breakall},
-        {"clear", &clear_cmd},
-        {"cleardrops", &cleardrops_cmd},
         {"curse", &curse_cmd},
         {"deleteallworlds", &deleteallworlds_cmd},
         {"deleteworld", &deleteworld},
         {"ducttape", &ducttape},
         {"dumpitems", &dumpitems_cmd},
-        {"fill", &fill},
-        {"fillworld", &fillworld_cmd},
         {"firework", &firework},
-        {"flag", &flag_cmd},
         {"freeze", &freeze},
         {"gems", &gems},
         {"give", &give},
@@ -249,7 +238,6 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"nuke", &nuke},
         {"private", &private_cmd},
         {"removeblock", &removeblock},
-        {"renameworld", &renameworld},
         {"reset", &reset},
         {"save", &saveworld},
         {"search", &search_cmd},
@@ -257,12 +245,10 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"showplayer", &showplayer},
         {"shutdown", &shutdown_cmd},
         {"spawnall", &spawnall},
-        {"sphere", &sphere},
         {"summon", &summon},
         {"swap", &swap_cmd},
         {"tile", &tile_cmd},
         {"uncurse", &uncurse_cmd},
-        {"undo", &undo},
         {"undress", &undress},
         {"unnuke", &unnuke},
         {"warpto", &warpto},
@@ -294,7 +280,8 @@ std::unordered_map<std::string_view, std::function<void(ENetEvent&, const std::s
         {"default", &command_default},
         {"status", &command_status},
         {"welcome", &welcome_system::command},
-        {"1hit", developer_only(&command_onehit)}
+        {"1hit", developer_only(&command_onehit)},
+        {"trade", &trade_cmd}
     };
 
     for (std::string_view emote : emotes)

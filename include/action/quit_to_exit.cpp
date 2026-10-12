@@ -3,7 +3,7 @@
 #include <deque>
 #include "onVariant/RequestWorldSelectMenu.hpp"
 #include "onVariant/ConsoleMessage.hpp"
-#include "dialog_return/trade.hpp"
+#include "commands/trade.hpp"
 #include "quit_to_exit.hpp"
 
 namespace
@@ -63,7 +63,7 @@ void action::quit_to_exit(ENetEvent& event, const std::string& header, bool skip
     //       Re-created world => netid_counter restarts at 1 => two players share a netid => they look like one player.
     if (pPeer->netid == 0) return;
 
-    trade::close(event.peer, true); // @note leaving the world always cancels any open trade
+    trade_end_for(*pPeer, "left the world"); // @note a trade can't outlive the world it started in
 
     auto world = std::ranges::find(worlds, pPeer->recent_worlds.back(), &::world::name);
     if (world == worlds.end()) { pPeer->netid = 0; return; } // @note peer was not in a world, therefore nothing to exit from.

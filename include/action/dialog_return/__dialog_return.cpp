@@ -7,7 +7,7 @@
 #include "gateway_edit.hpp"
 #include "display_edit.hpp"
 #include "vending.hpp"
-#include "trade.hpp"
+#include "commands/trade.hpp"
 #include "billboard_edit.hpp"
 #include "lock_edit.hpp"
 #include "create_blast.hpp"
@@ -42,9 +42,8 @@ std::unordered_map<std::string, std::function<void(ENetEvent &, const ::hPipe &)
     {"sign_edit", std::bind(&gateway_edit, std::placeholders::_1, std::placeholders::_2)},
     {"display_edit", std::bind(&display_edit, std::placeholders::_1, std::placeholders::_2)},
     {"vending", std::bind(&vending, std::placeholders::_1, std::placeholders::_2)},
-    {"trade", std::bind(&trade::handle, std::placeholders::_1, std::placeholders::_2)},
-    {"trade2", std::bind(&trade::handle, std::placeholders::_1, std::placeholders::_2)},
-    {"trade_closed", [](ENetEvent&, const ::hPipe&) {}},
+    {"trade_add", std::bind(&trade_return, std::placeholders::_1, std::placeholders::_2)},
+    {"trade_confirm", std::bind(&trade_return, std::placeholders::_1, std::placeholders::_2)},
 
     {"billboard_edit", std::bind(&billboard_edit, std::placeholders::_1, std::placeholders::_2)},
     {"lock_edit", std::bind(&lock_edit, std::placeholders::_1, std::placeholders::_2)},
