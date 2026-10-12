@@ -17,4 +17,6 @@ mysql_login.txt
 # deployment
 .env
 logs/
-include/integration/
+
+# Discord webhook secret (never commit a real URL)
+resources/discord_webhook.url
