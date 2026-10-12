@@ -330,19 +330,39 @@ namespace
             .add_quick_exit();
         std::printf("[trade] dialog sent to %s (seq %d)\n", me->growid.c_str(), s.seq);
         // @note bottom standard button = Cancel only (the Accept button is the green one above)
-        send_varlist(viewer, {"OnDialogRequest", dialog.end_dialog("trade", "Cancel", "")});
+        // Alternate dialog name each seq so the client treats a push as a *new* dialog
+        // (same-name OnDialogRequest is often ignored while a dialog is already open).
+        const char *dialog_name = (s.seq % 2 == 0) ? "trade" : "trade2";
+        send_varlist(viewer, {"OnDialogRequest", dialog.end_dialog(dialog_name, "Cancel", "")});
     }
 
-    /* Re-send BOTH dialogs, then instantly tell the partner what changed.
-       The notice (screen overlay + chat) shows the actor's FULL current offer,
-       so the partner sees it right away even if their open dialog is not
-       replaced by the client yet.
-       @param actor peer who changed something (nullptr = no notice)
+    /* Force the client to drop its current dialog. GT often ignores a second
+       OnDialogRequest while one is open; closing first makes the next show() stick.
+       Returns for "trade_closed" are registered as a no-op in dialog_return_pool. */
+    void force_close_dialog(ENetPeer *viewer)
+    {
+        if (!viewer) return;
+        send_varlist(viewer, {"OnDialogRequest",
+            "set_default_color|`o\n"
+            "end_dialog|trade_closed|||\n"});
+    }
+
+    /* Re-send BOTH dialogs, then tell the partner what changed.
+       The partner still has their old dialog open — force-close it first so the
+       client accepts the updated trade window without needing a manual Refresh.
+       @param actor peer who changed something (nullptr = initial open / no notice)
        @param what  short text, e.g. "added an item" */
     void show_both(trade::session &s, ENetPeer *actor = nullptr, const std::string &what = "")
     {
         touch(s);
         ++s.seq; // @note unique payload per mutation
+
+        // Close open dialogs before re-pushing. Actor already closed theirs via
+        // dialog_return; the partner has not — that is why offers looked "stuck".
+        if (s.a && s.a != actor) force_close_dialog(s.a);
+        if (s.b && s.b != actor) force_close_dialog(s.b);
+        if (host) enet_host_flush(host); // @note deliver closes before the new windows
+
         show(s.a, s, true);
         show(s.b, s, false);
 
@@ -461,7 +481,7 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
     if (!s)
     {
         // @note stale dialog left open after the trade ended
-        if (hPipe["dialog_name"] == "trade")
+        if (hPipe["dialog_name"] == "trade" || hPipe["dialog_name"] == "trade2")
             on::ConsoleMessage(event.peer, "`oThis trade is no longer active.``");
         return;
     }
@@ -561,22 +581,16 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         return;
     }
 
-    // @note Accept is ONLY the explicit Accept button.
-    const bool is_accept = action == "trade_accept" || action == "Accept";
-    if (is_accept)
+    if (action == "trade_accept" || action == "Accept")
     {
-        // @note STALE-DIALOG GUARD: if the player is looking at an old dialog
-        // (partner changed the offer meanwhile), do NOT accept — show the fresh one.
-        // Un-accepting is always allowed. Empty seq (client did not echo it) is let through.
-        const bool already = is_a ? s->accept_a : s->accept_b;
+        // @note reject stale Accept from an older dialog (race after a concurrent update)
         const std::string seq_text = hPipe["trade_seq"];
-        if (!already && !seq_text.empty())
+        if (!seq_text.empty())
         {
-            int seq = 0;
-            if (!parse_int(seq_text, seq) || seq != s->seq)
+            int client_seq = -1;
+            if (parse_int(seq_text, client_seq) && client_seq != s->seq)
             {
-                on::ConsoleMessage(event.peer, "`4The offer changed! Check it again, then accept.``");
-                send_varlist(event.peer, {"OnTextOverlay", "`4The offer changed! Check it again, then accept.``"});
+                on::ConsoleMessage(event.peer, "`oTrade updated — check the new offers, then accept.``");
                 show(event.peer, *s, is_a);
                 return;
             }
