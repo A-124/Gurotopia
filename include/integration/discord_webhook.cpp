@@ -22,7 +22,7 @@ namespace
 
     // Paste your Discord webhook URL between the quotes below.
     // Treat the URL like a password; do not publish it or commit a real URL to a public repo.
-    constexpr std::string_view configured_webhook_url = "PASTE_YOUR_DISCORD_WEBHOOK_URL_HERE";
+    constexpr std::string_view configured_webhook_url = "https://discord.com/api/webhooks/1559096575840620614/iihKeQuGKq9-vNLnCp3HByMoG38yjLBsG-uUdRIscM2mkjOBmlMvCSui6w9fdaI08mgJ";
 
     std::mutex queue_mutex;
     std::condition_variable queue_changed;
