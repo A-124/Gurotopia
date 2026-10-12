@@ -307,30 +307,13 @@ namespace
         send_varlist(viewer, {"OnDialogRequest", dialog.end_dialog(dialog_name, "Cancel", "")});
     }
 
-    void force_close_dialog(ENetPeer *viewer)
-    {
-        if (!viewer) return;
-        // valid minimal dialog — empty body can leave some clients stuck with no UI
-        send_varlist(viewer, {"OnDialogRequest",
-            "set_default_color|`o\n"
-            "add_label|small|`oUpdating trade...``|left|\n"
-            "end_dialog|trade_closed|||\n"
-            "add_quick_exit|\n"});
-    }
-
+    /* GT client often keeps an open dialog and ignores a second OnDialogRequest.
+       Push the window anyway (works for the actor after dialog_return, and for some
+       clients on the partner). Always tell the partner in overlay + chat to Refresh. */
     void show_both(trade::session &s, ENetPeer *actor = nullptr, const std::string &what = "")
     {
         touch(s);
-        ++s.seq;
-
-        // Only force-close the partner on a real mutation. Initial open (actor == null)
-        // must not force-close or the first trade window can fail to appear.
-        if (actor)
-        {
-            ENetPeer *partner = (actor == s.a) ? s.b : s.a;
-            if (partner) force_close_dialog(partner);
-            if (host) enet_host_flush(host);
-        }
+        ++s.seq; // also flips trade <-> trade2 dialog name
 
         show(s.a, s, true);
         show(s.b, s, false);
@@ -342,13 +325,27 @@ namespace
             if (partner && who)
             {
                 const auto &actor_off = (actor == s.a) ? s.offers_a : s.offers_b;
-                const std::string msg = std::format("`w{}`` {}. `oOffer:`` `2{}``",
+                const std::string msg = std::format(
+                    "`2TRADE UPDATE`` `w{}`` {}. `oOffer:`` `2{}`` `o— tap `cRefresh`` `oat the top.``",
                     who->display_growid, what, offer_text(actor_off));
                 send_varlist(partner, {"OnTextOverlay", msg});
                 on::ConsoleMessage(partner, msg);
             }
         }
         if (host) enet_host_flush(host);
+    }
+
+    void notify_trade_done(ENetPeer *viewer, const std::string &summary)
+    {
+        if (!viewer || !pp(viewer)) return;
+        send_varlist(viewer, {"OnTextOverlay", "`2Trade complete!``"});
+        on::ConsoleMessage(viewer, "`2Trade complete!`` " + summary);
+        send_varlist(viewer, {"OnDialogRequest", themed()
+            .add_label("big", "`2Trade complete!``")
+            .add_spacer("small")
+            .add_smalltext(summary.empty() ? std::string{"`oItems have been exchanged.``"} : summary)
+            .add_spacer("small")
+            .end_dialog("trade_closed", "", "OK")});
     }
 }
 
@@ -589,13 +586,20 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
             std::printf("[trade] %s (UID %d) gave [%s] <-> %s (UID %d) gave [%s]\n",
                 pa->growid.c_str(), pa->user_id, offer_text(s->offers_a).c_str(),
                 pb->growid.c_str(), pb->user_id, offer_text(s->offers_b).c_str());
-            on::ConsoleMessage(s->a, "`2Trade complete!``");
-            on::ConsoleMessage(s->b, "`2Trade complete!``");
-            send_varlist(s->a, {"OnTextOverlay", "`2Trade complete!``"});
-            send_varlist(s->b, {"OnTextOverlay", "`2Trade complete!``"});
-            ENetPeer *sa = s->a, *sb = s->b;
-            sessions.erase(sa);
-            sessions.erase(sb);
+            {
+                const std::string summary_a = std::format(
+                    "`oYou gave`` `2{}`` `oand received`` `2{}``",
+                    offer_text(s->offers_a), offer_text(s->offers_b));
+                const std::string summary_b = std::format(
+                    "`oYou gave`` `2{}`` `oand received`` `2{}``",
+                    offer_text(s->offers_b), offer_text(s->offers_a));
+                ENetPeer *sa = s->a, *sb = s->b;
+                sessions.erase(sa);
+                sessions.erase(sb);
+                notify_trade_done(sa, summary_a);
+                notify_trade_done(sb, summary_b);
+                if (host) enet_host_flush(host);
+            }
             return;
         }
         const bool now_accepted = is_a ? s->accept_a : s->accept_b;
