@@ -1,0 +1,6 @@
+# Copy this file to discord_webhook.url and put your real webhook URL on one line.
+# Or set the environment variable instead:
+#   export GURO_DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+#
+# Create a webhook in Discord: Server Settings → Integrations → Webhooks → New Webhook
+https://discord.com/api/webhooks/ID/TOKEN
