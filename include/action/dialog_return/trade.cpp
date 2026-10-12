@@ -13,18 +13,9 @@ std::unordered_map<ENetPeer*, std::shared_ptr<trade::session>> trade::sessions;
 
 namespace
 {
-    // =====================================================================
-    //  THEME — dito mo palitan ang itsura ng trade window
-    // =====================================================================
-    constexpr int BG_COLOR[4]     = {14, 16, 24, 240};  // dark navy   (r, g, b, alpha 0-255)
-    constexpr int BORDER_COLOR[4] = {0, 210, 180, 255}; // teal accent (r, g, b, alpha 0-255)
-    // Text color codes na ginamit sa baba (palitan sa show() kung gusto mo):
-    //   `w white   `o light gray   `c cyan (accent)   `2 green   `9 yellow   `4 red
-
-    // @note true = ipakita rin ang lumang listahan ng "Add xN" buttons sa ilalim ng picker.
+    constexpr int BG_COLOR[4]     = {14, 16, 24, 240};
+    constexpr int BORDER_COLOR[4] = {0, 210, 180, 255};
     constexpr bool SHOW_ADD_GRID = false;
-
-    // @note ilang segundong walang pindot bago ituring na abandoned ang trade
     constexpr std::time_t TRADE_IDLE_LIMIT = 120;
 
     ::create_dialog themed()
@@ -47,7 +38,6 @@ namespace
     bool same_world(ENetPeer *a, ENetPeer *b)
     {
         const ::peer *pa = pp(a), *pb = pp(b);
-        // @note netid == 0 means the player already left to the world menu
         return pa && pb && pa->netid != 0 && pb->netid != 0
             && !pa->recent_worlds.back().empty()
             && pa->recent_worlds.back() == pb->recent_worlds.back();
@@ -55,8 +45,6 @@ namespace
 
     void touch(trade::session &s) { s.last_active = std::time(nullptr); }
 
-    /* abandoned / broken trade: someone left the world, disconnected,
-       or nobody clicked anything for TRADE_IDLE_LIMIT seconds */
     bool session_dead(const trade::session &s)
     {
         if (!pp(s.a) || !pp(s.b) || !same_world(s.a, s.b)) return true;
@@ -73,7 +61,7 @@ namespace
             if (o.item >= static_cast<int>(items.size()) || id_to_item(static_cast<u_short>(o.item)).id != o.item) return false;
             if (id_to_item(static_cast<u_short>(o.item)).cat & CAT_UNTRADEABLE) return false;
             need[o.item] += o.count;
-            if (need[o.item] > 800) return false; // @note 4 slots * 200
+            if (need[o.item] > 800) return false;
         }
         for (const auto &[id, n] : need)
         {
@@ -84,7 +72,6 @@ namespace
         return true;
     }
 
-    /* can `p` hold `incoming` AFTER it has handed over `outgoing`? (items given away free up slots) */
     bool fits(const ::peer &p, const std::array<trade::offer, 4> &outgoing, const std::array<trade::offer, 4> &incoming)
     {
         std::vector<::slot> sim = p.slots;
@@ -117,7 +104,6 @@ namespace
         return true;
     }
 
-    /* offers are reservations: the backpack is only touched here, at confirm. */
     void take_offer(ENetEvent &event, const std::array<trade::offer, 4> &offers)
     {
         for (const auto &o : offers)
@@ -148,7 +134,6 @@ namespace
         }
     }
 
-    /* "5x Dirt, 1x Rock" — text version of an offer, used for instant notices */
     std::string offer_text(const std::array<trade::offer, 4> &offers)
     {
         std::string text;
@@ -168,7 +153,6 @@ namespace
         return total;
     }
 
-    /* "Dirt x200" */
     std::string item_line(const trade::offer &o)
     {
         return std::format("`w{}`` `ox{}``", id_to_item(static_cast<u_short>(o.item)).raw_name, o.count);
@@ -187,7 +171,6 @@ namespace
         return "`oReview both offers, then tap Accept. Both players must accept.``";
     }
 
-    /* @param amount 0 = whole remaining stack (max 200 per offer slot), >0 = that many */
     bool add_to_offer(ENetEvent &event, std::array<trade::offer, 4> &my_off,
         int id, int amount, std::string &err)
     {
@@ -195,7 +178,7 @@ namespace
         if (!me) { err = "`4Trade error.``"; return false; }
         if (id <= 0 || id >= static_cast<int>(items.size()) ||
             id_to_item(static_cast<u_short>(id)).id != id) { err = "`4Unknown item.``"; return false; }
-        if (id == 18 || id == 32) { err = "`4That item cannot be traded.``"; return false; } // @note fist + wrench
+        if (id == 18 || id == 32) { err = "`4That item cannot be traded.``"; return false; }
         const ::item &it = id_to_item(static_cast<u_short>(id));
         if (it.cat & CAT_UNTRADEABLE) { err = "`4That item cannot be traded.``"; return false; }
         int have = 0;
@@ -241,13 +224,6 @@ namespace
         return true;
     }
 
-    /* Layout (top -> bottom):
-       [Refresh]  Trade with X  status hint
-       > THEY GIVE [state]   items
-       > YOU GIVE  [state]   items (+Remove)
-       summary
-       > ADD ITEM   inventory picker + amount
-       [ACCEPT TRADE]   [Cancel] */
     void show(ENetPeer *viewer, trade::session &s, bool is_a)
     {
         ::peer *me = pp(viewer);
@@ -262,7 +238,7 @@ namespace
         const int get_total = offer_total(their_off);
 
         auto dialog = themed()
-            .add_button("trade_refresh", "`cRefresh``") // @note PINAKA-TAAS para madaling i-tap
+            .add_button("trade_refresh", "`cRefresh``")
             .add_spacer("small")
             .add_label_with_icon("big", std::format("`wTrade with `c{}``", other->display_growid), 242)
             .add_smalltext(status_hint(other->display_growid, i_accept, they_accept, (give_total + get_total) > 0))
@@ -295,8 +271,6 @@ namespace
         dialog.add_spacer("small")
             .add_smalltext(std::format("`oYou give `w{}`` item(s)   |   You get `w{}`` item(s)``", give_total, get_total));
 
-        // @note same as the vending machine: tap the picker -> choose an item from your inventory.
-        //       The picker posts "itemID" back; "amount" (optional) is sent along with it.
         dialog.add_spacer("small")
             .add_textbox("`c> ADD ITEM``")
             .add_item_picker("itemID", "`wTap to pick an item from your inventory``", "Choose the item you want to offer.")
@@ -329,39 +303,34 @@ namespace
             .embed_data("trade_win", 1)
             .add_quick_exit();
         std::printf("[trade] dialog sent to %s (seq %d)\n", me->growid.c_str(), s.seq);
-        // @note bottom standard button = Cancel only (the Accept button is the green one above)
-        // Alternate dialog name each seq so the client treats a push as a *new* dialog
-        // (same-name OnDialogRequest is often ignored while a dialog is already open).
         const char *dialog_name = (s.seq % 2 == 0) ? "trade" : "trade2";
         send_varlist(viewer, {"OnDialogRequest", dialog.end_dialog(dialog_name, "Cancel", "")});
     }
 
-    /* Force the client to drop its current dialog. GT often ignores a second
-       OnDialogRequest while one is open; closing first makes the next show() stick.
-       Returns for "trade_closed" are registered as a no-op in dialog_return_pool. */
     void force_close_dialog(ENetPeer *viewer)
     {
         if (!viewer) return;
+        // valid minimal dialog — empty body can leave some clients stuck with no UI
         send_varlist(viewer, {"OnDialogRequest",
             "set_default_color|`o\n"
-            "end_dialog|trade_closed|||\n"});
+            "add_label|small|`oUpdating trade...``|left|\n"
+            "end_dialog|trade_closed|||\n"
+            "add_quick_exit|\n"});
     }
 
-    /* Re-send BOTH dialogs, then tell the partner what changed.
-       The partner still has their old dialog open — force-close it first so the
-       client accepts the updated trade window without needing a manual Refresh.
-       @param actor peer who changed something (nullptr = initial open / no notice)
-       @param what  short text, e.g. "added an item" */
     void show_both(trade::session &s, ENetPeer *actor = nullptr, const std::string &what = "")
     {
         touch(s);
-        ++s.seq; // @note unique payload per mutation
+        ++s.seq;
 
-        // Close open dialogs before re-pushing. Actor already closed theirs via
-        // dialog_return; the partner has not — that is why offers looked "stuck".
-        if (s.a && s.a != actor) force_close_dialog(s.a);
-        if (s.b && s.b != actor) force_close_dialog(s.b);
-        if (host) enet_host_flush(host); // @note deliver closes before the new windows
+        // Only force-close the partner on a real mutation. Initial open (actor == null)
+        // must not force-close or the first trade window can fail to appear.
+        if (actor)
+        {
+            ENetPeer *partner = (actor == s.a) ? s.b : s.a;
+            if (partner) force_close_dialog(partner);
+            if (host) enet_host_flush(host);
+        }
 
         show(s.a, s, true);
         show(s.b, s, false);
@@ -379,7 +348,7 @@ namespace
                 on::ConsoleMessage(partner, msg);
             }
         }
-        if (host) enet_host_flush(host); // @note send now, not on the next service tick
+        if (host) enet_host_flush(host);
     }
 }
 
@@ -422,25 +391,22 @@ void trade::open(ENetEvent &event, int target_netid)
     if (!target) { on::ConsoleMessage(event.peer, "`4That player is not here.``"); return; }
     if (!same_world(event.peer, target)) { on::ConsoleMessage(event.peer, "`4You must be in the same world to trade.``"); return; }
 
-    // @note 1) I already have a trade (maybe I just closed its window with the X)
     if (session *mine = trade::find(event.peer))
     {
         ENetPeer *partner = (mine->a == event.peer) ? mine->b : mine->a;
         if (partner == target && !session_dead(*mine))
         {
-            // same partner -> just re-open the SAME trade, offers are still there
             touch(*mine);
             show(event.peer, *mine, mine->a == event.peer);
             return;
         }
-        trade::close(event.peer, true); // abandoned, or I'm starting one with someone else
+        trade::close(event.peer, true);
     }
 
-    // @note 2) the other player is busy — but only if their trade is still alive
     if (session *busy = trade::find(target))
     {
         if (!session_dead(*busy)) { on::ConsoleMessage(event.peer, "`4That player is already trading.``"); return; }
-        trade::close(target, true); // abandoned trade, clean it up
+        trade::close(target, true);
     }
 
     auto s = std::make_shared<session>();
@@ -452,7 +418,7 @@ void trade::open(ENetEvent &event, int target_netid)
     send_varlist(target, {"OnTextOverlay", std::format("`2{} opened a trade!``", me->display_growid)});
     on::ConsoleMessage(target, std::format("`2{} opened a trade!``", me->display_growid));
     auto *mine = trade::find(event.peer);
-    if (mine) show_both(*mine); // @note both windows open together
+    if (mine) show_both(*mine);
 }
 
 void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
@@ -464,7 +430,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         action.c_str(), hPipe["dialog_name"].c_str(), hPipe["trade_seq"].c_str(),
         hPipe["itemID"].c_str(), hPipe["amount"].c_str());
 
-    // @note wrench Trade button (dialog "popup") carries netID of the target.
     if (action == "trade")
     {
         int netid = 0;
@@ -480,12 +445,11 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
     trade::session *s = trade::find(event.peer);
     if (!s)
     {
-        // @note stale dialog left open after the trade ended
         if (hPipe["dialog_name"] == "trade" || hPipe["dialog_name"] == "trade2")
             on::ConsoleMessage(event.peer, "`oThis trade is no longer active.``");
         return;
     }
-    touch(*s); // @note any click counts as activity
+    touch(*s);
     const bool is_a = (s->a == event.peer);
     ENetPeer *other_p = is_a ? s->b : s->a;
     ::peer *me = pp(event.peer);
@@ -503,7 +467,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         return;
     }
 
-    // @note Refresh: re-send the current dialog only (does NOT bump seq)
     if (action == "trade_refresh")
     {
         show(event.peer, *s, is_a);
@@ -512,10 +475,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
 
     auto &my_off = is_a ? s->offers_a : s->offers_b;
 
-    // @note INVENTORY PICKER (like the vending machine): the client posts "itemID"
-    //       when the player taps an item. It only counts as a pick when the click is
-    //       NOT one of our own buttons (Accept / Remove / Add), because those can
-    //       also carry an old itemID along.
     const std::string picked = hPipe["itemID"];
     if (!picked.empty() &&
         !action.starts_with("tadd_") && !action.starts_with("tremove_") &&
@@ -528,7 +487,7 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
             show(event.peer, *s, is_a);
             return;
         }
-        int amount = 0; // @note blank / invalid = whole remaining stack
+        int amount = 0;
         const std::string amount_text = hPipe["amount"];
         if (!amount_text.empty() && (!parse_int(amount_text, amount) || amount < 0)) amount = 0;
 
@@ -544,7 +503,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         return;
     }
 
-    // @note old grid button (only used when SHOW_ADD_GRID = true)
     if (action.starts_with("tadd_"))
     {
         int id = 0;
@@ -566,7 +524,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
         return;
     }
 
-    // @note tap "Remove" -> remove that offer line.
     if (action.starts_with("tremove_"))
     {
         int idx = -1;
@@ -583,7 +540,6 @@ void trade::handle(ENetEvent &event, const ::hPipe &hPipe)
 
     if (action == "trade_accept" || action == "Accept")
     {
-        // @note reject stale Accept from an older dialog (race after a concurrent update)
         const std::string seq_text = hPipe["trade_seq"];
         if (!seq_text.empty())
         {
