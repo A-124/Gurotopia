@@ -106,7 +106,7 @@ int main()
     }
 
     std::printf("shutting down (signal %d): saving players and worlds...\n", static_cast<int>(gSignal));
-    discord_webhook::notify("🔴 Gurotopia server is stopping (shutdown or restart).");
+    discord_webhook::notify_embed("Server offline", "\xf0\x9f\x94\xb4 **Gurotopia** is stopping (shutdown or restart).", 0xED4245);
     safe_disconnect_peers(gSignal);
     worlds.clear(); // @note ~world() saves every loaded world; it must happen before the database closes (otherwise players' builds, drops and weather are lost on shutdown)
     mysql_close(db); // @note deletes db (MYSQL* allocation)
