@@ -47,7 +47,7 @@
 # recipe|20000|1|2:2
 #
 # Leey Katana: clones Legendary Katana (ID 2592).
-item|20000|`cLeey Katana|2592|20|10|1|game/tester64x64.rttex|A custom katana made for Gurotopia.|2592|game/Leey_Katanav2.rttex|extra
+item|20000|`cLeey Katana|2592|20|10|1|game/Leey_Katanav2.rttex|A custom katana made for Gurotopia.|2592|game/Leey_Katanav2.rttex|extra
 
 #RECIPE
 recipe|20000|1|2:2
