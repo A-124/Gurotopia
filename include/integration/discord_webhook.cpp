@@ -157,7 +157,7 @@ void start()
 
 void notify(std::string_view message)
 {
-    if (!running || message.empty()) return;
+    if (message.empty()) return;
     {
         std::lock_guard lock(queue_mutex);
         if (!running || stopping) return;
@@ -173,9 +173,9 @@ void notify(std::string_view message)
 
 void stop()
 {
-    if (!running) return;
     {
         std::lock_guard lock(queue_mutex);
+        if (!running) return;
         stopping = true;
     }
     queue_changed.notify_all();
