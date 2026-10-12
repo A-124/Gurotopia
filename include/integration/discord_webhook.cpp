@@ -16,7 +16,7 @@ constexpr std::size_t max_queue_size = 32;
 constexpr auto request_timeout = std::chrono::seconds(5);
 constexpr auto send_interval = std::chrono::milliseconds(2100);
 constexpr auto status_update_interval = std::chrono::seconds(10);
-constexpr std::string_view configured_webhook_url = "PASTE_YOUR_DISCORD_WEBHOOK_URL_HERE";
+constexpr std::string_view configured_webhook_url = "https://discord.com/api/webhooks/1559096575840620614/iihKeQuGKq9-vNLnCp3HByMoG38yjLBsG-uUdRIscM2mkjOBmlMvCSui6w9fdaI08mgJ";
 std::mutex queue_mutex;
 std::condition_variable queue_changed;
 std::deque<std::string> queue;
