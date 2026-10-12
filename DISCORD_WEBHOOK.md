@@ -7,15 +7,9 @@ This branch adds one-way Discord notifications for:
 
 ## Configure
 
-Set `GURO_DISCORD_WEBHOOK_URL` in the server's environment to the Discord channel's **Incoming Webhook URL**. Keep it secret; do not commit it to source control. If it is unset, the integration is disabled and the server works as before.
+Open `include/integration/discord_webhook.cpp` and replace `PASTE_YOUR_DISCORD_WEBHOOK_URL_HERE` in `configured_webhook_url` with your Discord channel's **Incoming Webhook URL**.
 
-For Docker, pass it at runtime, for example:
-
-```sh
-docker run -e GURO_DISCORD_WEBHOOK_URL='https://discord.com/api/webhooks/REDACTED/REDACTED' ...
-```
-
-Do not paste the real webhook URL into logs, source files, or public issue reports.
+Treat the webhook URL like a password. Anyone who gets it can post to that channel. Do not commit a real webhook URL to a public repository; add it locally after pulling the code, or keep your configured copy private. If the placeholder is unchanged, the integration stays disabled and the server works as before.
 
 ## Message behavior
 
