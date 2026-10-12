@@ -1,7 +1,7 @@
 # Discord webhook: lifecycle + multiplier event
 
 This branch adds one-way Discord notifications for:
-- Server startup (after the server has initialized and is ready).
+- One persistent server status embed, created after initialization and edited every 10 seconds to refresh uptime (resets when the process restarts).
 - Server stopping (on a handled SIGINT/SIGTERM/SIGHUP). A restart appears as a stopping message followed by a startup message from the next process.
 - Successful `/startmultiplier <gem> <xp> <seconds>` command execution.
 
@@ -13,6 +13,6 @@ Treat the webhook URL like a password. Anyone who gets it can post to that chann
 
 ## Message behavior
 
-The sender runs on a background thread so the game loop does not wait for Discord's HTTP response. It verifies HTTPS and leaves libcurl's TLS certificate/hostname verification enabled. Messages are JSON-escaped, mentions are disabled, requests have timeouts, and a small queue/rate delay is used.
+The persistent status embed is created with Discord webhook `?wait=true` so the API returns its message ID; the integration then edits that same message every 10 seconds. Multiplier and shutdown announcements remain separate messages. The sender runs on background threads so the game loop does not wait for Discord HTTP responses. It verifies HTTPS and leaves libcurl TLS certificate/hostname verification enabled. Messages are JSON-escaped, mentions are disabled, requests have timeouts, and a small queue/rate delay is used.
 
 This sends a stop notice only when the process receives a handled termination signal. A hard crash, forced kill, or power loss cannot reliably send a final webhook message.
