@@ -82,13 +82,13 @@ void command_lsb(ENetEvent &event, std::string_view text)
     while (!message.empty() && std::isspace(static_cast<unsigned char>(message.back()))) message.remove_suffix(1);
     if (message.empty())
     {
-        on::ConsoleMessage(event.peer, "Usage: /lsb <message> (requires Legendary Mask, item 25550).");
+        on::ConsoleMessage(event.peer, "Usage: /lsb <message> (requires Legendary Katana, item 2592).");
         return;
     }
-    const auto mask = std::ranges::find(self->slots, static_cast<short>(25550), &::slot::id);
-    if (mask == self->slots.end() || mask->count <= 0)
+    const auto katana = std::ranges::find(self->slots, static_cast<short>(2592), &::slot::id);
+    if (katana == self->slots.end() || katana->count <= 0)
     {
-        on::ConsoleMessage(event.peer, "You need a Legendary Mask (item 25550) to use /lsb.");
+        on::ConsoleMessage(event.peer, "You need a Legendary Katana (item 2592) to use /lsb.");
         return;
     }
     const auto now = std::chrono::steady_clock::now();
