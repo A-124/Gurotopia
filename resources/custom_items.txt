@@ -1,64 +1,99 @@
-# Gurotopia custom content configuration
+# Gurotopia custom content
 #
-# ITEM FORMAT (one item per line):
-# item|id|name|base_item|type|rarity|tradeable|texture_path|info|render_base_item(optional)|icon_texture(optional)|icon_slot(optional)
-#
-# Fields:
-# id          = unique custom item ID (1000-65535; do not reuse vanilla IDs)
-# name        = item name shown in inventory and dialogs
-# base_item   = vanilla item ID used for server-side behavior/runtime metadata
-# render_base_item = optional vanilla item ID used as the client record/render template;
-#                    useful when a different item has more suitable sprite/render metadata
-# type        = item type/action_type (e.g. 20 = clothing; usually match base_item)
-# rarity      = rarity number shown in item info
-# tradeable   = 1 allows dropping/trading; 0 marks it untradeable
-# texture_path= client texture path in items.dat (e.g. game/Leey_Katana.rttex)
-# info        = text shown in the /info item dialog; do not use the | character
-# icon_texture= optional SECOND texture (e.g. game/Leey_Katana_icon.rttex, 32x32) so the visual
-#               texture can be 64x64 while the icon stays small. Leave render_base_item empty
-#               (||) if you want an icon but no render base.
-# icon_slot   = extra (default): texture_path = main slot, icon_texture = extra-file slot.
-#               main: swapped (main slot = icon_texture, extra-file slot = texture_path).
-#               If the icon does not change in game with "extra", set this to "main".
-#
-# NOTE: the server passes the configured .rttex asset through; it does not resize or pad it.
-# RTTEX canvases must be a power of two, so a 48x16 sprite has to sit on a 64x64 (or 64x16)
-# canvas. Build one with:  python tools/png_to_rttex.py art.png resources/custom_assets/Name.rttex
-# (default canvas 64x64, art at top-left). On startup the server prints each custom texture's
-# real canvas size, e.g. "texture Leey_Katana64.rttex canvas 64x64".
-#
-# The server loads texture files from resources/custom_assets/ using the basename
-# of texture_path. Keep the texture_path in the same format as vanilla items.dat.
-#
-# CUSTOM BLOCK FORMAT:
-# lucky_box|id|name|base_item|texture_path|drop_id,drop_id,...
-#   Drop IDs are weighted by position: with 4 IDs, their weights are 4, 3, 2, 1.
-#   Therefore the leftmost item is most likely and the rightmost is least likely.
+# This file defines custom items, custom blocks, and crafting recipes.
+# Apply changes without restarting the server with: /reload content
+# Lines starting with # are comments and are ignored.
 
-# pot_gold|id|name|base_item|texture_path|min_gems,max_gems
-#   Pot Gold drops a random number of gems between min_gems and max_gems (inclusive).
-# base_item should be a vanilla block whose rendering/behavior metadata is suitable.
-# Textures are loaded from resources/custom_assets/ by basename; use game/<filename> in the config.
+
+# =====================================================================
+# 1. CUSTOM ITEMS
+# =====================================================================
 #
-# RECIPE FORMAT (one recipe per line):
-# recipe|result_id|result_amount|ingredient_id:amount,ingredient_id:amount
+# One item per line, with these fields in this order:
 #
-# Example recipe: make 1 item 20000 using two of item 2:
-# recipe|20000|1|2:2
+#   item|id|name|base_item|type|rarity|tradeable|texture_path|info|render_base_item|icon_texture|icon_slot
 #
-# Leey Katana: clones Legendary Katana (ID 2592).
+#   id           Unique custom ID, from 1000 to 65535. Never reuse a vanilla item ID.
+#   name         Name shown in the inventory and dialogs.
+#   base_item    Vanilla item ID used for server-side behavior and metadata.
+#   type         Item/action type. Usually the same as base_item (20 = clothing).
+#   rarity       Rarity number shown in the item info.
+#   tradeable    1 = can be dropped and traded, 0 = cannot be traded.
+#   texture_path Client texture path, as in items.dat (e.g. game/Leey_Katana.rttex).
+#                The server loads the file by its name from resources/custom_assets/.
+#   info         Text shown by /info. Do not use the | character here.
+#   render_base_item (optional)
+#                Vanilla item ID used as the client render template. Useful when
+#                another item has better sprite metadata. Leave empty if not needed.
+#   icon_texture (optional)
+#                A second texture for the small inventory icon (e.g. a 32x32 file),
+#                so the main texture can be 64x64 while the icon stays small.
+#                To use an icon without a render base, write it as || (empty render base).
+#   icon_slot    "extra" (default) or "main".
+#                  extra: texture_path goes in the main slot and icon_texture in the
+#                         extra file slot.
+#                  main:  the two are swapped.
+#                If the icon does not change in game with "extra", use "main".
+#
+# TEXTURE SIZE
+# The server does not resize or pad textures. RTTEX canvases must be a power of two,
+# so a 48x16 sprite must sit on a 64x64 (or 64x16) canvas. Build one with:
+#
+#   python tools/png_to_rttex.py art.png resources/custom_assets/Name.rttex
+#
+# The default canvas is 64x64 with the art in the top-left corner. When the server
+# starts, it prints each custom texture's canvas size, for example:
+#   texture Leey_Katana64.rttex canvas 64x64
+
+# Leey Katana: a copy of the Legendary Katana (ID 2592).
 item|20000|`cLeey Katana|2592|20|10|1|game/Leey_Katanav2.rttex|A custom katana made for Gurotopia.|2592|game/Leey_Katanav2.rttex|extra
 
-#RECIPE
+
+# =====================================================================
+# 2. RECIPES
+# =====================================================================
+#
+# One recipe per line:
+#
+#   recipe|result_id|result_amount|ingredient_id:amount,ingredient_id:amount
+#
+# Example: make 1 of item 20000 from 2 of item 2:
+#   recipe|20000|1|2:2
+
 recipe|20000|1|2:2
 recipe|30000|1|2:2
 recipe|30002|1|2:2
 
-# Custom blocks (IDs must not overlap vanilla item IDs).
-# Lucky Box weights: 2=50%, 10=33.3%, 18=16.7% with this three-entry list (no gem reward).
+
+# =====================================================================
+# 3. CUSTOM BLOCKS
+# =====================================================================
+#
+# Block IDs must not overlap vanilla item IDs.
+# Textures are loaded the same way as items: use game/<filename> and place the file
+# in resources/custom_assets/.
+
+# Lucky Box
+#   lucky_box|id|name|base_item|texture_path|drop_id,drop_id,...
+#
+#   Drops are weighted by position. With N drop IDs, the first gets weight N, the
+#   second N-1, and so on, down to 1 for the last. The first item is the most likely.
+#
+#   This box has 8 drops, so the total weight is 36:
+#     2      22.2%     160     19.4%     2228    16.7%     2874    13.9%
+#     7276   11.1%     4626     8.3%     9698     5.6%     11340    2.8%
+#   There is no gem reward.
+#
+#   ID 30001 is reserved for the future Lucky Box Seed.
+
 lucky_box|30000|`cLucky Box|2|game/Lucky_box.rttex|2,160,2228,2874,7276,4626,9698,11340
 
 
+# Pot Gold
+#   pot_gold|id|name|base_item|texture_path|min_gems,max_gems
+#
+#   Drops a random number of gems from min_gems to max_gems (inclusive).
+#   base_item should be a vanilla block with suitable rendering and behavior.
+#   Pot Gold uses ID 30002.
 
-# ID 30001 is reserved for the future Lucky Box Seed. Pot Gold uses ID 30002.
 pot_gold|30002|`cPot Gold|2|game/Pot_Gold.rttex|1,100
